@@ -38,8 +38,6 @@ def get_secret(setting, secrets=secrets):
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-EC2_PUBLIC_DNS = get_secret('EC2_PUBLIC_DNS')
-
 ALLOWED_HOSTS = [   # 프론트 배포 후 백엔드 도메인으로 변경 
     '127.0.0.1',
     'localhost',
