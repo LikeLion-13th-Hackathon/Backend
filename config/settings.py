@@ -43,7 +43,8 @@ EC2_PUBLIC_DNS = get_secret('EC2_PUBLIC_DNS')
 ALLOWED_HOSTS = [   # 프론트 배포 후 백엔드 도메인으로 변경 
     '127.0.0.1',
     'localhost',
-    EC2_PUBLIC_DNS,
+    'ec2-54-180-214-201.ap-northeast-2.compute.amazonaws.com',  # 퍼블릭 DNS
+    '54.180.214.201',   # 퍼블릭 IPv4
 ]
 
 # Application definition
