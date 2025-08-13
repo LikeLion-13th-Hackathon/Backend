@@ -8,7 +8,12 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "django (>=5.2.4,<6.0.0)"
+
+    "django (>=5.2.4,<6.0.0)",
+    "django-cors-headers (>=4.7.0,<5.0.0)",
+    "pymysql (>=1.1.1,<2.0.0)",
+    "sshtunnel (>=0.4.0,<0.5.0)",
+    "pillow (>=11.3.0,<12.0.0)"
 ]
 
 [tool.poetry]
