@@ -18,14 +18,32 @@ from django.core.exceptions import ImproperlyConfigured
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# secret_key setting
+secret_file = os.path.join(BASE_DIR, 'secrets.json') 
 
+with open(secret_file) as f:
+    secrets = json.loads(f.read())
+
+def get_secret(setting, secrets=secrets): 
+# secret 변수를 가져오거나 그렇지 못 하면 예외를 반환
+    try:
+        return secrets[setting]
+    except KeyError:
+        error_msg = "Set the {} environment variable".format(setting)
+        raise ImproperlyConfigured(error_msg)
+    
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [   # 프론트 배포 후 백엔드 도메인으로 변경 
+    '127.0.0.1',
+    'localhost',
+    'ec2-54-180-214-201.ap-northeast-2.compute.amazonaws.com',  # 퍼블릭 DNS
+    '54.180.214.201',   # 퍼블릭 IPv4
+]
 
 # Application definition
 
@@ -43,16 +61,17 @@ PROJECT_APPS = [
 ]
 
 THIRD_PARTY_APPS = [
-
+    "corsheaders",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + PROJECT_APPS + THIRD_PARTY_APPS
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    # 'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -130,18 +149,11 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# secret_key setting
-secret_file = os.path.join(BASE_DIR, 'secrets.json') 
-
-with open(secret_file) as f:
-    secrets = json.loads(f.read())
-
-def get_secret(setting, secrets=secrets): 
-# secret 변수를 가져오거나 그렇지 못 하면 예외를 반환
-    try:
-        return secrets[setting]
-    except KeyError:
-        error_msg = "Set the {} environment variable".format(setting)
-        raise ImproperlyConfigured(error_msg)
-
 SECRET_KEY = get_secret("SECRET_KEY")
+
+CORS_ALLOW_CREDENTIALS = True   
+
+CORS_ALLOWED_ORIGINS = [    # 프론트 배포 후 프론트 도메인으로 변경
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
