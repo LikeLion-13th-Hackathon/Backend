@@ -29,12 +29,32 @@ secret_file = os.path.join(BASE_DIR, 'secrets.json')
 with open(secret_file) as f:
     secrets = json.loads(f.read())
 
-def get_secret(setting, secrets=secrets): 
+'''def get_secret(setting, secrets=secrets): 
 # secret 변수를 가져오거나 그렇지 못 하면 예외를 반환
     try:
         return secrets[setting]
     except KeyError:
         error_msg = "Set the {} environment variable".format(setting)
+        raise ImproperlyConfigured(error_msg)
+'''
+
+ENV = os.getenv('ENV', 'local')  # 기본값은 'local'
+
+def get_secret(setting, env=ENV, secrets=secrets):
+    """
+    secrets.json에서 환경별 혹은 공용 변수를 가져온다.
+    1. 현재 환경(LOCAL/PRODUCTION) dict 안에서 먼저 찾음
+    2. 없으면 최상위 key에서 찾음
+    3. 둘 다 없으면 ImproperlyConfigured 예외 발생
+    """
+    try:
+        # 환경별 값 우선
+        if env in secrets and setting in secrets[env]:
+            return secrets[env][setting]
+        # 환경별 값이 없으면 최상위 값
+        return secrets[setting]
+    except KeyError:
+        error_msg = f"Set the {setting} environment variable in secrets.json"
         raise ImproperlyConfigured(error_msg)
     
 # Quick-start development settings - unsuitable for production
@@ -69,6 +89,10 @@ PROJECT_APPS = [
 THIRD_PARTY_APPS = [
     "corsheaders",
     'rest_framework_simplejwt',
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + PROJECT_APPS + THIRD_PARTY_APPS
@@ -82,6 +106,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -110,7 +135,6 @@ LOCAL_DB_NAME = get_secret("LOCAL_DB_NAME")
 LOCAL_DB_PW = get_secret("LOCAL_DB_PW")
 DB_PW = get_secret("DB_PW")
 
-ENV = os.getenv('ENV', 'local')  # 기본값은 'local'
 
 if ENV == 'local':
     # Local용 test_db, manage.py runserver하면 local db에 연결 
@@ -136,7 +160,7 @@ elif ENV == 'devtunnel':
             'PORT': '3307',  # SSH 터널 포트
         }
     }
-elif ENV == 'production':
+elif ENV == 'production': #secrets.json 확인하기
     # EC2에서 RDS에 직접 접속
     DATABASES = {
         'default': {
@@ -219,3 +243,8 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': False,
     'TOKEN_USER_CLASS': 'accounts.User',
 }
+
+### OAuth ###
+# django-allauth 라이브러리에서 사용하는 옵션
+ACCOUNT_LOGIN_METHODS = {'email'}                  # 로그인 방식 설정
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*']    # 회원가입 시 필수 입력 필드 설정

@@ -8,5 +8,12 @@ class User(AbstractUser):
     def get_user_by_username(username):
         try:
             return User.objects.get(username=username)
-        except Exception:
+        except User.DoesNotExist:
+            return None
+
+    @staticmethod
+    def get_user_by_email(email):  # 여기 수정
+        try:
+            return User.objects.get(email=email)
+        except User.DoesNotExist:
             return None
