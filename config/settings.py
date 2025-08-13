@@ -18,6 +18,8 @@ pymysql.install_as_MySQLdb()
 import os, json
 from django.core.exceptions import ImproperlyConfigured
 
+from datetime import timedelta #login
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -61,10 +63,12 @@ DJANGO_APPS = [
 
 PROJECT_APPS = [
     'testapi',
+    'accounts',
 ]
 
 THIRD_PARTY_APPS = [
     "corsheaders",
+    'rest_framework_simplejwt',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + PROJECT_APPS + THIRD_PARTY_APPS
@@ -195,3 +199,23 @@ CORS_ALLOWED_ORIGINS = [    # 프론트 배포 후 프론트 도메인으로 변
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
+
+### LOGIN ###
+
+AUTH_USER_MODEL = 'accounts.User' #accounts
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
+REST_USE_JWT = True
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=20),    # 유효기간 3시간 (개발 기간동안 프론트 접근 가능하도록 임의로 20일)
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),    # 유효기간 7일
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': False,
+    'TOKEN_USER_CLASS': 'accounts.User',
+}
