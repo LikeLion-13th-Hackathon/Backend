@@ -12,20 +12,41 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 
+import pymysql
+pymysql.install_as_MySQLdb()
+
 import os, json
 from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# secret_key setting
+secret_file = os.path.join(BASE_DIR, 'secrets.json') 
 
+with open(secret_file) as f:
+    secrets = json.loads(f.read())
+
+def get_secret(setting, secrets=secrets): 
+# secret 변수를 가져오거나 그렇지 못 하면 예외를 반환
+    try:
+        return secrets[setting]
+    except KeyError:
+        error_msg = "Set the {} environment variable".format(setting)
+        raise ImproperlyConfigured(error_msg)
+    
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [   # 프론트 배포 후 백엔드 도메인으로 변경 
+    '127.0.0.1',
+    'localhost',
+    'ec2-54-180-214-201.ap-northeast-2.compute.amazonaws.com',  # 퍼블릭 DNS
+    '54.180.214.201',   # 퍼블릭 IPv4
+]
 
 # Application definition
 
@@ -43,16 +64,17 @@ PROJECT_APPS = [
 ]
 
 THIRD_PARTY_APPS = [
-
+    "corsheaders",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + PROJECT_APPS + THIRD_PARTY_APPS
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    # 'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -77,16 +99,51 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+LOCAL_DB_NAME = get_secret("LOCAL_DB_NAME")
+LOCAL_DB_PW = get_secret("LOCAL_DB_PW")
+DB_PW = get_secret("DB_PW")
+
+ENV = os.getenv('ENV', 'local')  # 기본값은 'local'
+
+if ENV == 'local':
+    # Local용 test_db, manage.py runserver하면 local db에 연결 
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': LOCAL_DB_NAME,
+            'USER': 'root',
+            'PASSWORD': LOCAL_DB_PW,
+            'HOST': 'localhost',
+            'PORT': '3306',
+        }
     }
-}
+elif ENV == 'devtunnel':
+    # Local에서 SSH 터널로 AWS RDS 연결, run_with_tunnel.py runserver 하면 원격 db 연결
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': "hackathon_oyes_db",
+            'USER': "admin",
+            'PASSWORD': DB_PW,
+            'HOST': "127.0.0.1",
+            'PORT': '3307',  # SSH 터널 포트
+        }
+    }
+elif ENV == 'production':
+    # EC2에서 RDS에 직접 접속
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': 'hackathon_oyes_db',
+            'USER': 'admin',
+            'PASSWORD': DB_PW,
+            'HOST': 'hackathon-oyes-db.clcy2g662zfy.ap-northeast-2.rds.amazonaws.com',
+            'PORT': '3306',
+        }
+    }
 
 
 # Password validation
@@ -130,18 +187,11 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# secret_key setting
-secret_file = os.path.join(BASE_DIR, 'secrets.json') 
-
-with open(secret_file) as f:
-    secrets = json.loads(f.read())
-
-def get_secret(setting, secrets=secrets): 
-# secret 변수를 가져오거나 그렇지 못 하면 예외를 반환
-    try:
-        return secrets[setting]
-    except KeyError:
-        error_msg = "Set the {} environment variable".format(setting)
-        raise ImproperlyConfigured(error_msg)
-
 SECRET_KEY = get_secret("SECRET_KEY")
+
+CORS_ALLOW_CREDENTIALS = True   
+
+CORS_ALLOWED_ORIGINS = [    # 프론트 배포 후 프론트 도메인으로 변경
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
