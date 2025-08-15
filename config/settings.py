@@ -102,18 +102,19 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-LOCAL_DB_NAME = get_secret("LOCAL_DB_NAME")
-LOCAL_DB_PW = get_secret("LOCAL_DB_PW")
+DB_NAME = get_secret("DB_NAME")
 DB_PW = get_secret("DB_PW")
+USER = get_secret("USER")
+HOST = get_secret("HOST") # 로컬 테스트할 땐 'localhost'로 변경
 
-# Local용 test_db, manage.py runserver하면 local db에 연결 
+# 로컬 테스트할 땐 settings.py의 DB_NAME, USER, DB_PW, HOST 변경 필요
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': LOCAL_DB_NAME,
-        'USER': 'root',
-        'PASSWORD': LOCAL_DB_PW,
-        'HOST': 'localhost',
+        'NAME': DB_NAME,
+        'USER': USER,
+        'PASSWORD': DB_PW,
+        'HOST': HOST,
         'PORT': '3306',
     }
 }
@@ -127,18 +128,6 @@ DATABASES = {
 #         'PASSWORD': DB_PW,
 #         'HOST': "127.0.0.1",
 #         'PORT': '3307',  # SSH 터널 포트
-#     }
-# }
-
-# # 최종. EC2의 RDS 설정
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.mysql',
-#         'NAME': 'hackathon_oyes_db',
-#         'USER': 'admin',
-#         'PASSWORD': DB_PW,
-#         'HOST': 'hackathon-oyes-db.clcy2g662zfy.ap-northeast-2.rds.amazonaws.com',
-#         'PORT': '3306',
 #     }
 # }
 
