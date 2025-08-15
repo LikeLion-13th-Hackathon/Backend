@@ -89,10 +89,10 @@ PROJECT_APPS = [
 THIRD_PARTY_APPS = [
     "corsheaders",
     'rest_framework_simplejwt',
-    "allauth",
-    "allauth.account",
-    "allauth.socialaccount",
-    "allauth.socialaccount.providers.google",
+    # "allauth",
+    # "allauth.account",
+    # "allauth.socialaccount", 구글용
+    # "allauth.socialaccount.providers.google", 
 ]
 
 INSTALLED_APPS = DJANGO_APPS + PROJECT_APPS + THIRD_PARTY_APPS
@@ -106,7 +106,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    "allauth.account.middleware.AccountMiddleware",
+    # "allauth.account.middleware.AccountMiddleware",
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -160,7 +160,7 @@ elif ENV == 'devtunnel':
             'PORT': '3307',  # SSH 터널 포트
         }
     }
-elif ENV == 'production': #secrets.json 확인하기
+elif ENV == 'production': 
     # EC2에서 RDS에 직접 접속
     DATABASES = {
         'default': {
@@ -222,6 +222,7 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [    # 프론트 배포 후 프론트 도메인으로 변경
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:5173", # 프론트 - 권민정
 ]
 
 ### LOGIN ###
@@ -243,8 +244,3 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': False,
     'TOKEN_USER_CLASS': 'accounts.User',
 }
-
-### OAuth ###
-# django-allauth 라이브러리에서 사용하는 옵션
-ACCOUNT_LOGIN_METHODS = {'email'}                  # 로그인 방식 설정
-ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*']    # 회원가입 시 필수 입력 필드 설정
