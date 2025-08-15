@@ -7,10 +7,12 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .serializers import ImageSerializer
-from .serializers import ImageSerializer
 from django.conf import settings
+from django.utils import timezone
 import boto3
 import uuid
+import json
+import requests
 
 def health_check(request):
     if request.method == "GET":
@@ -56,3 +58,34 @@ class ImageUploadView(APIView):
         serializer = ImageSerializer(image_instance)
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+class OcrView(APIView):
+    def post(self, request):
+        image_file = request.FILES['file']
+
+        # 네이버 OCR API 요청 준비
+        url = 'https://e140deli82.apigw.ntruss.com/custom/v1/45208/063b748a49735894d8ed5ccb7d319025d142b0ce3854fafec62ee3053ba2da0d/document/receipt'
+        secret = settings.X_OCR_SECRET
+        message = {
+            "version": "V2",
+            "requestId": str(uuid.uuid4()),
+            "timestamp": int(timezone.now().timestamp() * 1000),
+            "images": [
+                {
+                    "format": "jpg", 
+                    "name": image_file.name,
+                }
+            ]
+        }
+
+        files = {
+            'file': (image_file.name, image_file, image_file.content_type),
+            'message': (None, json.dumps(message), 'application/json'),
+        }
+        headers = {
+            'X-OCR-SECRET': secret,
+        }
+        response = requests.post(url, headers=headers, files=files)
+        ocr_result = response.json()
+
+        return Response(ocr_result)
