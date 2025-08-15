@@ -106,8 +106,9 @@ DB_NAME = get_secret("DB_NAME")
 DB_PW = get_secret("DB_PW")
 USER = get_secret("USER")
 HOST = get_secret("HOST") # 로컬 테스트할 땐 'localhost'로 변경
+PORT = get_secret("PORT")
 
-# 로컬 테스트할 땐 settings.py의 DB_NAME, USER, DB_PW, HOST 변경 필요
+# 로컬 테스트, SHH 터널링, AWS RDS 연결 바꿀 때마다 settings.py의 DB_NAME, USER, DB_PW, HOST, PORT 변경 필요
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
@@ -115,21 +116,9 @@ DATABASES = {
         'USER': USER,
         'PASSWORD': DB_PW,
         'HOST': HOST,
-        'PORT': '3306',
+        'PORT': PORT,
     }
 }
-
-# # Local에서 SSH 터널로 AWS RDS 연결, run_with_tunnel.py runserver 하면 원격 db 연결
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.mysql',
-#         'NAME': "hackathon_oyes_db",
-#         'USER': "admin",
-#         'PASSWORD': DB_PW,
-#         'HOST': "127.0.0.1",
-#         'PORT': '3307',  # SSH 터널 포트
-#     }
-# }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
