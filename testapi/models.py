@@ -14,3 +14,8 @@ class Image(BaseModel):
 
     def __str__(self):
         return f"Image {self.id}"
+    
+class Store(BaseModel):
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=50)
+    address = models.CharField(max_length=100)
