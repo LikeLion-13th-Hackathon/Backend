@@ -69,7 +69,10 @@ ALLOWED_HOSTS = [   # 프론트 배포 후 백엔드 도메인으로 변경
     'localhost',
     'ec2-54-180-214-201.ap-northeast-2.compute.amazonaws.com',  # 퍼블릭 DNS
     '54.180.214.201',   # 퍼블릭 IPv4
+    'oyes-hackathon.o-r.kr', # gpt 가 해보래!
+    'www.oyes-hackathon.o-r.kr',  # 필요하면 www 도 추가
 ]
+
 
 # Application definition
 
