@@ -23,22 +23,6 @@ def health_check(request):
             'data' : "OK!"
         })
     
-def normalize_address(addr):
-    # 시, 구, 군, 면, 동, 읍과 불필요한 기호 제거. 주소 정규화
-    if not addr:
-        return ''
-    return (
-        addr.replace(" ", "")
-            .replace("시", "")
-            .replace("구", "")
-            .replace("군", "")
-            .replace("읍", "")
-            .replace("면", "")
-            .replace("동", "")
-            .replace("-", "")
-            .replace(",", "")
-            .replace(".", "")
-    )
 
 class ImageUploadView(APIView):
     def post(self, request):
@@ -77,6 +61,58 @@ class ImageUploadView(APIView):
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
+def normalize_address(addr: str) -> str:
+    if not addr:
+        return ""
+    s = str(addr).strip()
+    # 다중 공백 -> 하나
+    s = " ".join(s.split())
+    # 쉼표/마침표만 제거(하이픈은 유지)
+    for ch in [",", "."]:
+        s = s.replace(ch, " ")
+    s = " ".join(s.split())
+    return s
+
+def score_pair(a: str, b: str) -> dict:
+    na, nb = normalize_address(a), normalize_address(b)
+    r = fuzz.ratio(na, nb)
+    p = fuzz.partial_ratio(na, nb)
+    return {"ratio": r, "partial": p}
+
+def pick_better(s1: dict, s2: dict) -> tuple[dict, str]:
+    # ratio 높은 쪽 우선, 동률이면 partial 높은 쪽
+    if s1["ratio"] > s2["ratio"]:
+        return s1, "roadname"
+    if s2["ratio"] > s1["ratio"]:
+        return s2, "number"
+    if s1["partial"] >= s2["partial"]:
+        return s1, "roadname"
+    else:
+        return s2, "number"
+
+def compare_address(ocr_addr: str, roadname_addr: str | None, number_addr: str | None) -> dict:
+    # 점수 계산
+    road_scores = score_pair(ocr_addr, roadname_addr or "")
+    num_scores  = score_pair(ocr_addr, number_addr or "")
+
+    # 더 높은 점수로 선택
+    best_scores, best_type = pick_better(road_scores, num_scores)
+
+    # - 엄격: ratio >= 93
+    # - 관대: partial >= 98 and ratio >= 85
+    strict_ok = best_scores["ratio"] >= 93
+    lenient_ok = (best_scores["partial"] >= 98 and best_scores["ratio"] >= 85)
+
+    match = strict_ok or lenient_ok
+
+    return {
+        "match": match,
+        "best_type": best_type, # 'roadname' or 'number'
+        "best_scores": best_scores,
+        "road_scores": road_scores,
+        "number_scores": num_scores,
+    }
+
 class OcrView(APIView):
     def post(self, request):
         image_file = request.FILES['file']
@@ -108,17 +144,13 @@ class OcrView(APIView):
        
         # front에 보낼 영수증 정보
         receipt_info = ocr_result['images'][0]['receipt']['result']
-
         receipt_store_name = receipt_info['storeInfo']['name']['text']
-
         addresses = receipt_info['storeInfo'].get('addresses', [])
         if addresses and isinstance(addresses, list):
             receipt_store_address = addresses[0].get('text', '')
         else:
             receipt_store_address = ''
-
         receipt_date = receipt_info['paymentInfo']['date']['text']
-
         receipt_total_price = receipt_info['totalPrice']['price']['text']
 
         current_store_name = request.data.get('store_name')
@@ -127,38 +159,41 @@ class OcrView(APIView):
         # 가게 이름으로 주소 가져와서 비교. 가게 이름은 영수증과 다른 경우가 많음
         try:
             current_store = Store.objects.get(name=current_store_name)
-            print(current_store)
-            print(current_store.name)
-            print(current_store.address)
-            current_store_address = current_store.address
+            current_store_roadname_address = current_store.roadname_address
+            current_store_number_address = current_store.number_address
         except Store.DoesNotExist:
-            current_store_address = None
+            current_store_roadname_address = ""
+            current_store_number_address = ""
 
-        # 주소 정규화
-        norm_receipt_address = normalize_address(receipt_store_address)
-        norm_db_address = normalize_address(current_store_address)
-        
-        # rapidfuzz로 유사도 점수 비교
-        address_score = fuzz.ratio(norm_receipt_address, norm_db_address)
-        address_match = address_score >= 80  # 유사도 80 이상이면 일치로 간주
+        # 영수증의 가게 주소과 db의 가게 주소 비교
+        cmp = compare_address(
+            ocr_addr=receipt_store_address,
+            roadname_addr=current_store_roadname_address,
+            number_addr=current_store_number_address,
+        )
 
-        if not address_match:
+        if not cmp["match"]:
             return Response({
-                'address_match': False,
-                'address_score': address_score,
-                'message': '영수증 정보와 가게 정보가 일치하지 않습니다.'
-            })
+                "address_match": False,
+                "best_type": cmp["best_type"],
+                "best_scores": cmp["best_scores"],
+                "road_scores": cmp["road_scores"],
+                "number_scores": cmp["number_scores"],
+                "message": "영수증 정보와 가게 정보가 일치하지 않습니다.",
+            }, status=200)
         
         return Response({
-            'receipt_store_name': receipt_store_name,
-            'receipt_store_address': receipt_store_address,
-            'receipt_date': receipt_date,
-            'receipt_total_price': receipt_total_price,
-            'current_store_name': current_store_name,
-            'current_store_address': current_store_address,
-            'address_match': address_match,
-            'address_score': address_score,
-        })
+            "receipt_store_name": receipt_store_name,
+            "receipt_store_address": receipt_store_address,
+            "receipt_date": receipt_date,
+            "receipt_total_price": receipt_total_price,
+            "current_store_name": current_store_name,
+            "best_type": cmp["best_type"],
+            "address_match": True,
+            "best_scores": cmp["best_scores"],
+            "road_scores": cmp["road_scores"],
+            "number_scores": cmp["number_scores"],
+        }, status=200)
     
 class StoreView(APIView):
     def post(self, request):

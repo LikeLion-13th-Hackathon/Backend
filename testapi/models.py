@@ -18,4 +18,5 @@ class Image(BaseModel):
 class Store(BaseModel):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=50)
-    address = models.CharField(max_length=100)
+    roadname_address = models.CharField(max_length=100)
+    number_address = models.CharField(max_length=100)
