@@ -70,6 +70,9 @@ def normalize_address(addr: str) -> str:
     # 쉼표/마침표만 제거(하이픈은 유지)
     for ch in [",", "."]:
         s = s.replace(ch, " ")
+    # 특별시 변환
+    for token in ("서울특별시", "서울시"):
+        s = s.replace(token, "서울")
     s = " ".join(s.split())
     return s
 
@@ -101,7 +104,7 @@ def compare_address(ocr_addr: str, roadname_addr: str | None, number_addr: str |
     # - 엄격: ratio >= 93
     # - 관대: partial >= 98 and ratio >= 85
     strict_ok = best_scores["ratio"] >= 93
-    lenient_ok = (best_scores["partial"] >= 98 and best_scores["ratio"] >= 85)
+    lenient_ok = (best_scores["partial"] >= 97 and best_scores["ratio"] >= 85)
 
     match = strict_ok or lenient_ok
 
@@ -172,6 +175,9 @@ class OcrView(APIView):
             number_addr=current_store_number_address,
         )
 
+        # best_type 기준으로 응답용 주소 선택
+        current_store_address = current_store_roadname_address if cmp["best_type"] == "roadname" else current_store_number_address
+
         if not cmp["match"]:
             return Response({
                 "address_match": False,
@@ -179,8 +185,11 @@ class OcrView(APIView):
                 "best_scores": cmp["best_scores"],
                 "road_scores": cmp["road_scores"],
                 "number_scores": cmp["number_scores"],
+                "receipt_store_address": receipt_store_address,
+                "current_store_address": current_store_address,
                 "message": "영수증 정보와 가게 정보가 일치하지 않습니다.",
-            }, status=200)
+                "ocr_result": ocr_result,
+            }, status=400)
         
         return Response({
             "receipt_store_name": receipt_store_name,
@@ -188,11 +197,13 @@ class OcrView(APIView):
             "receipt_date": receipt_date,
             "receipt_total_price": receipt_total_price,
             "current_store_name": current_store_name,
+            "current_store_address": current_store_address,
             "best_type": cmp["best_type"],
             "address_match": True,
             "best_scores": cmp["best_scores"],
             "road_scores": cmp["road_scores"],
             "number_scores": cmp["number_scores"],
+            "ocr_result": ocr_result,
         }, status=200)
     
 class StoreView(APIView):
