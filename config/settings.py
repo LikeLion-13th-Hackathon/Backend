@@ -88,6 +88,8 @@ DJANGO_APPS = [
 PROJECT_APPS = [
     'testapi',
     'accounts',
+    'receipts',
+    'stores'
 ]
 
 THIRD_PARTY_APPS = [
