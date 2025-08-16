@@ -210,7 +210,19 @@ class ReceiptView(APIView):
             if addrs:
                 first = addrs[0] or {}
                 store_address = safe_get(first, "formatted", "value") or first.get("text")
-
+            
+            # 주소 필수 검증: 없으면 즉시 실패 반환
+            if not store_address or not str(store_address).strip():
+                skipped.append({"image_uid": image_uid, "reason": "NO_ADDRESS"})
+                return Response(
+                    {
+                        "detail": "영수증에서 주소를 추출하지 못했습니다.",
+                        "image_uid": image_uid,
+                        "skipped": skipped,
+                    },
+                    status=400,
+                )
+        
             tel_values = []
             for t in store_info.get("tel") or []:
                 v = safe_get(t, "formatted", "value") or t.get("text")
