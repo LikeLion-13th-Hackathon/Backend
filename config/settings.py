@@ -86,11 +86,15 @@ MIDDLEWARE = [
     # "allauth.account.middleware.AccountMiddleware",
 ]
 
-CSRF_TRUSTED_ORIGINS = [
-    'http://oyes-hackathon.o-r.kr/',
-    'https://oyes-hackathon.o-r.kr/',
-    'https://www.oyes-hackathon.o-r.kr/'
+# CSRF_TRUSTED_ORIGINS = [
+#     'https://oyes-hackathon.o-r.kr'
+# ]
+
+ALLOWED_ORIGINS = [    
+    'https://oyes-hackathon.o-r.kr'
 ]
+CSRF_TRUSTED_ORIGINS = ALLOWED_ORIGINS.copy()
+
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 ROOT_URLCONF = 'config.urls'
