@@ -92,6 +92,8 @@ PROJECT_APPS = [
     'stores',
     'markets',
     'menu',
+    'ai',
+    "reviews",
 ]
 
 THIRD_PARTY_APPS = [
@@ -239,3 +241,5 @@ AWS_S3_OBJECT_PARAMETERS = {
 }
 
 X_OCR_SECRET = get_secret("X_OCR_SECRET")
+
+GEMINI_API_KEY = get_secret("GEMINI_API_KEY")

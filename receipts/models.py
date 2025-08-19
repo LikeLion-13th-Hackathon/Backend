@@ -23,7 +23,7 @@ class Receipt(BaseModel):
     # storeInfo 요약
     store_name = models.CharField(max_length=255, blank=True, null=True)      # 점포 이름
     store_biz_no = models.CharField(max_length=64, blank=True, null=True)     # 사업자등록번호
-    store_address = models.TextField(blank=True, null=False)                   # 점포 주소
+    store_address = models.TextField(blank=True, null=False)                  # 점포 주소
     store_tels = models.JSONField(blank=True, null=True)                      # 점포 번호
 
     # 합계/금액 요약

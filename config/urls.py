@@ -14,5 +14,7 @@ urlpatterns = [
     path('receipt/', include('receipts.urls')),
     path('store/', include('stores.urls')),
     path('market/', include('markets.urls')),
-    path('menu/', include('menu.urls'))
+    path('menu/', include('menu.urls')),
+    path('ai/', include('ai.urls')),
+    path('review/', include('reviews.urls')),
 ]
