@@ -12,6 +12,8 @@ from typing import Dict, List, Tuple
 import re
 import json
 from .models import FeedbackTag, Feedback, Topic
+from django.db.models import Count, Q
+from rest_framework.permissions import IsAuthenticated
 
 DEFAULT_THREAD_ID = "default"
 
@@ -26,10 +28,10 @@ ROLE_GUIDES = {
 - 이번 턴에는 오직 USER 역할만 수행하고, STORE 문장을 출력하지 말 것."""
 }
 
-REVIEW_GUIDE = (
-"규칙:\n"
-"{review_top2}, {dietary_top2}, Spicy level-{spicy_top}와 관련된 대화 좀 더 많이 생성할 것"
-)
+# FEEDBACK_GUIDE = (
+# "규칙:\n"
+# "{review_top2}, {dietary_top2}, Spicy level-{spicy_top}와 관련된 대화 좀 더 많이 생성할 것"
+# )
 
 # 키가 없으면 명시적 에러
 GEMINI_API_KEY = getattr(settings, "GEMINI_API_KEY", None)
@@ -98,6 +100,48 @@ def top_k_keys(d: dict, k: int):
     # 값(value) 내림차순, 동률이면 키 오름차순으로 안정적으로 선택
     return [key for key, _ in sorted(d.items(), key=lambda kv: (-kv[1], kv))[:k]]
 
+# 피드백 top 집계
+def get_top_feedback_tags(limit: int = 3, user=None, since=None) -> dict:
+    """
+    Feedback에서 연결된 태그 중 polarity별(positive/negative) 상위 N개를 반환.
+    neutral은 제외.
+    """
+    fb_qs = Feedback.objects.all().prefetch_related("tags")
+    if user is not None:
+        fb_qs = fb_qs.filter(user=user)
+    if since is not None:
+        fb_qs = fb_qs.filter(created__gte=since)
+
+    # FeedbackTag 기준으로 집계 (neutral 제외)
+    tag_qs = (
+        FeedbackTag.objects
+        .exclude(polarity="neutral")
+        .annotate(
+            usage_count=Count(
+                "feedbacks",
+                filter=Q(feedbacks__in=fb_qs),
+                distinct=True,
+            )
+        )
+        .filter(usage_count__gt=0)
+    )
+    # 상위 3개씩 분리
+    pos_top = (
+        tag_qs.filter(polarity="positive")
+        .order_by("-usage_count", "tag")
+        .values_list("tag", flat=True)[:limit]
+    )
+    neg_top = (
+        tag_qs.filter(polarity="negative")
+        .order_by("-usage_count", "tag")
+        .values_list("tag", flat=True)[:limit]
+    )
+
+    return {
+        "positive": list(pos_top),
+        "negative": list(neg_top),
+    }
+
 class TopicListView(APIView):
     def get(self, request):
         category = request.query_params.get("category")
@@ -117,14 +161,29 @@ class AiChatView(APIView):
         topic = request.data.get("topic")
         retry = bool(request.data.get("retry"))
 
-        review_tags= {"Delicious": 42, "Clean": 18, "Recommended": 27, "Hard to find": 100, "Spacious": 12, "English spoken": 9}
-        dietary_restrictions= {"Vegan": 8, "Pork-free": 20, "Beef-free": 4, "Nut-free": 2}
-        spicy_level= {"Mild": 10, "Medium": 35, "Spicy": 15, "Very Spicy": 6}
+        # review_tags= {"Delicious": 42, "Clean": 18, "Recommended": 27, "Hard to find": 100, "Spacious": 12, "English spoken": 9}
+        # dietary_restrictions= {"Vegan": 8, "Pork-free": 20, "Beef-free": 4, "Nut-free": 2}
+        # spicy_level= {"Mild": 10, "Medium": 35, "Spicy": 15, "Very Spicy": 6}
 
-        # 상위 k개 키
-        review_top2 = top_k_keys(review_tags, 2)
-        dietary_top2 = top_k_keys(dietary_restrictions, 2)
-        spicy_top = top_k_keys(spicy_level, 1)
+        # # 상위 k개 키
+        # review_top2 = top_k_keys(review_tags, 2)
+        # dietary_top2 = top_k_keys(dietary_restrictions, 2)
+        # spicy_top = top_k_keys(spicy_level, 1)
+
+        # 1) 상위 태그 집계 불러오기 (전역/최근/유저별 등 필터는 필요 시 인자 추가)
+        top_tags = get_top_feedback_tags(limit=3)
+        pos_top3 = top_tags.get("positive", [])
+        neg_top3 = top_tags.get("negative", [])
+
+        # 2) 프롬프트에 삽입할 문구 구성 (neutral 제외)
+        reinforce_line = (
+            f"긍정 태그 상위 3개를 자연스럽게 강화해 대화를 생성하시오: {', '.join(pos_top3)}."
+            if pos_top3 else "강화할 긍정 태그가 없습니다."
+        )
+        improve_line = (
+            f"부정 태그 상위 3개를 보완/개선해 대화를 생성하시오: {', '.join(neg_top3)}."
+            if neg_top3 else "보완할 부정 태그가 없습니다."
+        )
 
         # 첫 요청: category에 속하는 가게 입장에서 topic과 관련된 대화를 시작하는 3가지 한국어 대화 생성해.
         prompt = (
@@ -138,12 +197,16 @@ class AiChatView(APIView):
             '플레이스홀더(OO, XX, [ ], ___, ( ), { })가 들어가는 응답 금지 '
             '가게의 특정 메뉴와 품목과 관련된 질문 금지 '
             "'fresh'=신선식품 "
+            "\n\n"
+            "[Feedback Hints]\n"
+            f"{reinforce_line}\n"
+            f"{improve_line}\n"
         )
 
         # 역할 파라미터 수신
         role = get_role(request)
         role_guide = ROLE_GUIDES[role]
-        review_guide = REVIEW_GUIDE.format(review_top2=review_top2, dietary_top2=dietary_top2, spicy_top=spicy_top)
+        # review_guide = REVIEW_GUIDE.format(review_top2=review_top2, dietary_top2=dietary_top2, spicy_top=spicy_top)
 
         # 프론트에서 요청할 때 thread_id에 topic을 넣어줘야 함!
         thread_id = (request.data.get("thread_id") or DEFAULT_THREAD_ID).strip()
@@ -263,7 +326,7 @@ class FeedbackView(APIView):
                 "- Prefer precision over recall. If unsure, choose fewer.\n"
                 "- You may include both positive and negative, but the total must be ≤3.\n"
                 "- If it doesn't fit, you may use neutral 'other' only when necessary.\n"
-                "- If the user’s utterance is inappropriate (including profanity or vulgar language), categorize it as “spam.\n\n"
+                "- If the user's utterance is inappropriate (including profanity or vulgar language), categorize it as “spam.\n\n"
                 f"Allowed positive tags:\n{pos_lines}\n\n"
                 f"Allowed negative tags:\n{neg_lines}\n\n"
                 f"Allowed neutral tags:\n{neu_lines}\n\n"
@@ -284,7 +347,7 @@ class FeedbackView(APIView):
     
 
     def post(self, request):
-        # 로그인 필수 추가 permission_classes = [IsAuthenticated]
+        # permission_classes = [IsAuthenticated]
 
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
@@ -295,7 +358,7 @@ class FeedbackView(APIView):
         comment = ser.validated_data["comment"]
 
         # 2) 허용 태그 목록 로드 (Admin에서 미리 등록된 값들)
-        allowed = list(Tag.objects.values("id", "polarity", "tag"))
+        allowed = list(FeedbackTag.objects.values("id", "polarity", "tag"))
         allowed_pos = [t["tag"] for t in allowed if t["polarity"] == "positive"]
         allowed_neg = [t["tag"] for t in allowed if t["polarity"] == "negative"]
         allowed_neu = [t["tag"] for t in allowed if t["polarity"] == "neutral"]
@@ -361,7 +424,7 @@ class FeedbackView(APIView):
         return Response(
             {
                 "id": fb.id,
-                "user": fb.user.id if fb.user_id else None,
+                "user": fb.user.user_id if fb.user else None,
                 "thumbs": fb.thumbs,
                 "feedback_comment": fb.comment,
                 "auto_tags": [{"id": name_to_id[n], "tag": n} for n in chosen_names if n in name_to_id],

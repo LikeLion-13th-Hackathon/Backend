@@ -8,12 +8,38 @@ class BaseModel(models.Model):
 
     class Meta:
         abstract = True
-    
+
 class ReviewTag(models.Model):
+    
     id = models.AutoField(primary_key=True)
-    category = models.CharField(max_length=50) # 대분류
-    group = models.CharField(max_length=50) # 중분류(속성 그룹)
-    tag = models.CharField(max_length=50) # 세부 항목(옵션 표시명)
+
+    CATEGORY_CHOICES = (
+        ("fresh", "fresh"),
+        ("snacks", "snacks"),
+        ("goods", "goods"),
+        ("restaurants", "restaurants")
+    )
+
+    GROUP_CHOICES = (
+        ("Review Tags", "Review Tags"),
+        ("Dietary Restrictions", "Dietary Restrictions"),
+        ("Spicy Level", "Spicy Level"),
+        ("Freshness", "Freshness"),
+        ("Usefulness", "Usefulness"),
+        ("Portion Size", "Portion Size"),
+    )
+
+    category = models.CharField( # 대분류
+        max_length=20,
+        choices=CATEGORY_CHOICES
+    )
+
+    group = models.CharField(   # 중분류
+        max_length=50,
+        choices=GROUP_CHOICES
+    ) 
+
+    tag = models.CharField(max_length=50) # 세부 항목
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["category", "group", "tag"], name="uniq_domain_group_tag"),

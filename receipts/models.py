@@ -15,7 +15,6 @@ class Receipt(BaseModel):
     image_uid = models.CharField(max_length=128, db_index=True)  # images[i].uid
 
     # receipt.result 전체(가볍게 쪼개 저장 + 원본 JSON 보관)
-
     payment_date = models.DateField(blank=True, null=True)  # 날짜 -> YYYY-MM-DD로 정규화한 값
     payment_time = models.TimeField(blank=True, null=True)  # 시간 -> HH:MM:SS
     payment_datetime = models.DateTimeField(blank=True, null=True, db_index=True) # 날짜 + 시간
