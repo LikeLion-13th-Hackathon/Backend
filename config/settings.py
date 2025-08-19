@@ -91,7 +91,7 @@ PROJECT_APPS = [
     'receipts',
     'stores',
     'markets',
-    'menu'
+    'menu',
 ]
 
 THIRD_PARTY_APPS = [
