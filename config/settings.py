@@ -92,7 +92,7 @@ CSRF_TRUSTED_ORIGINS = [
     "oyes-hackathon.o-r.kr"
 ]
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = False
 
 ROOT_URLCONF = 'config.urls'
 
