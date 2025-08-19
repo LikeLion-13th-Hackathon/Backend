@@ -4,7 +4,6 @@ from django.contrib.auth.models import AbstractUser
 class User(AbstractUser):
     # 기존 AbstractUser 필드 = username, email, password
     
-    user_id = models.AutoField(primary_key=True)
     username = models.CharField(max_length=40, unique=False)
     email = models.EmailField(unique=True)
     nickname = models.CharField(max_length=40, null=False, default=None)

@@ -39,24 +39,6 @@ def get_secret(setting, secrets=secrets):
 
 
 ENV = os.getenv('ENV', 'local')  # 기본값은 'local'
-
-'''def get_secret(setting, env=ENV, secrets=secrets):
-    """
-    secrets.json에서 환경별 혹은 공용 변수를 가져온다.
-    1. 현재 환경(LOCAL/PRODUCTION) dict 안에서 먼저 찾음
-    2. 없으면 최상위 key에서 찾음
-    3. 둘 다 없으면 ImproperlyConfigured 예외 발생
-    """
-    try:
-        # 환경별 값 우선
-        if env in secrets and setting in secrets[env]:
-            return secrets[env][setting]
-        # 환경별 값이 없으면 최상위 값
-        return secrets[setting]
-    except KeyError:
-        error_msg = f"Set the {setting} environment variable in secrets.json"
-        raise ImproperlyConfigured(error_msg)
-        '''
     
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
