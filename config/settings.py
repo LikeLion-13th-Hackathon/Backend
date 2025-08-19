@@ -79,7 +79,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    # 'django.middleware.csrf.CsrfViewMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -87,9 +87,9 @@ MIDDLEWARE = [
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://oyes-hackathon.o-r.kr",
-    "https://oyes-hackathon.o-r.kr",
-    "https://www.oyes-hackathon.o-r.kr"
+    'http://oyes-hackathon.o-r.kr/',
+    'https://oyes-hackathon.o-r.kr/',
+    'https://www.oyes-hackathon.o-r.kr/'
 ]
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
