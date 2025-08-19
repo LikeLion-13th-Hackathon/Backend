@@ -1,26 +1,20 @@
 from django.db import models
+from markets.models import Market
 
-# 공통 추상 클래스
-class BaseModel(models.Model):
-    created = models.DateTimeField(auto_now_add=True)  # 객체 최초 생성 시간
-    updated = models.DateTimeField(auto_now=True)      # 객체 저장/수정 시간
+
+class Store(models.Model):
+    store_id = models.AutoField(primary_key=True)
+    market = models.ForeignKey(Market, on_delete=models.CASCADE, default =None) 
+    
+    store_name = models.CharField(max_length=40)
+    category = models.CharField(max_length=40, default=None)
+    road_address = models.CharField(max_length=100, unique=True)
+    street_address = models.CharField(max_length=100, unique=True)
+    store_english = models.CharField(max_length=40)
+    store_image = models.CharField(max_length=255, null=True, blank=True) 
 
     class Meta:
-        abstract = True  # DB에 BaseModel 테이블이 직접 만들어지지 않음
-
-# 가게 모델
-class Store(BaseModel):
-    store_id = models.AutoField(primary_key=True)  # 가게 식별자 (**)
-    market_id = models.IntegerField()              # 시장 식별자 (추후 Market FK 가능)
-
-    store_name = models.CharField(max_length=40)       # 가게명 (** max_length changed)
-    category = models.CharField(max_length=40)         # 카테고리
-    road_address = models.CharField(max_length=100, unique=True)   # 도로명 주소 (**)
-    street_address = models.CharField(max_length=100, unique=True) # 지번 주소 (**)
-    store_english = models.CharField(max_length=40)    # 가게 영문명
-
-    class Meta: # DB 테이블명 명시 (ERD에 맞게)
-        db_table = "store"   
+        db_table = "store"
         verbose_name = "가게"
         verbose_name_plural = "가게 목록"
 

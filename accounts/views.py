@@ -54,7 +54,7 @@ class AuthView(APIView):
         res = Response(
             {
                 "user": {
-                    "id": user.id,
+                    "id": user.user_id,
                     "username": user.username,
                     "email": user.email,
                 },
