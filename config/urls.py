@@ -24,4 +24,6 @@ urlpatterns = [
     path('test/', include('testapi.urls')),
     path('account/', include('accounts.urls')),
     path('receipt/', include('receipts.urls')),
+    path('ai/', include('ai.urls')),
+    path('review/', include('reviews.urls')),
 ]
