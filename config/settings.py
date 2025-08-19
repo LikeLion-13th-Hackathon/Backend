@@ -89,17 +89,15 @@ PROJECT_APPS = [
     'testapi',
     'accounts',
     'receipts',
-    'stores'
+    'stores',
+    'markets',
+    'menu'
 ]
 
 THIRD_PARTY_APPS = [
     "corsheaders",
     'rest_framework_simplejwt',
     'storages',
-    # "allauth",
-    # "allauth.account",
-    # "allauth.socialaccount", 구글용
-    # "allauth.socialaccount.providers.google", 
 ]
 
 INSTALLED_APPS = DJANGO_APPS + PROJECT_APPS + THIRD_PARTY_APPS
