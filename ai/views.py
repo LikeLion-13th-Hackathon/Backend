@@ -143,6 +143,7 @@ def get_top_feedback_tags(limit: int = 3, user=None, since=None) -> dict:
     }
 
 class TopicListView(APIView):
+    permission_classes = [IsAuthenticated]
     def get(self, request):
         category = request.query_params.get("category")
         qs = Topic.objects.all()
@@ -152,6 +153,7 @@ class TopicListView(APIView):
         return Response(serializer.data)
 
 class AiChatView(APIView):
+    permission_classes = [IsAuthenticated]
     # 채팅 시작
     def post(self, request):
         serializer = ChatRequestSerializer(data=request.data)
@@ -308,11 +310,13 @@ class AiChatView(APIView):
 
 # 전체 스레드 삭제 (채팅 종료)
 class ClearAllThreadsView(APIView):
+    permission_classes = [IsAuthenticated]
     def post(self, request):
         clear_all_threads(request.session)
         return Response({"detail": "all threads cleared", "threads_index": []}, status=status.HTTP_200_OK)
 
 class FeedbackView(APIView):
+    permission_classes = [IsAuthenticated]
     def build_tag_classify_prompt(self, allowed_pos: List[str], allowed_neg: List[str], allowed_neu: List[str], thumbs: bool, comment: str) -> str:
             pos_lines = "\n".join(f"- {t}" for t in allowed_pos) or "- (none)"
             neg_lines = "\n".join(f"- {t}" for t in allowed_neg) or "- (none)"
