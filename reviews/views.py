@@ -1,16 +1,18 @@
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from django.shortcuts import get_object_or_404 
 from rest_framework import status, permissions
 from django.db import models, transaction, IntegrityError
 from .models import Review, ReviewLike, ReviewTag
 from .serializers import ReviewTagSerializer, ReviewCreateSerializer, ReviewUpdateSerializer, ReviewSerializer
 from rest_framework.permissions import IsAuthenticated
 from stores.models import Store
+from accounts.models import User
 
 class ReviewLikeToggleView(APIView):
     permission_classes = [IsAuthenticated]
-    def post(self, request, store_id, review_id):
+    def post(self, request, review_id):
         user = request.user
         try:
             # 좋아요 있으면 삭제
@@ -29,9 +31,6 @@ class ReviewLikeToggleView(APIView):
             else:
                 # 좋아요 없으면 생성
                 review = Review.objects.get(id=review_id)
-                # store 일치 검증
-                if review.store_id != store_id:
-                    return Response({"detail": "Mismatched store"}, status=400)
                 ReviewLike.objects.create(user=user, review=review)
                 Review.objects.filter(id=review_id).update(
                     likes_count=models.F("likes_count") + 1
@@ -45,7 +44,7 @@ class ReviewLikeToggleView(APIView):
             likes_count = Review.objects.values_list("likes_count", flat=True).get(id=review_id)
             return Response({"liked": liked, "likes_count": likes_count}, status=status.HTTP_200_OK)
 
-class ReviewListView(APIView):
+class StoreReviewListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, store_id):
@@ -79,9 +78,36 @@ class ReviewListView(APIView):
         return Response({"results": serializer.data},
             status=status.HTTP_200_OK,)
 
+class UserReviewListView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, user_id):
+        # 유저 존재 검증
+        if not User.objects.filter(pk=user_id).exists():
+            return Response({"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        qs = (
+            Review.objects.filter(user_id=user_id)
+            .select_related("store", "user")
+            .prefetch_related("tags", "likes")  # liked 계산 최적화
+            .order_by("-created")  # 필요시 created 기준으로 변경
+        )
+
+        serializer = ReviewSerializer(qs, many=True, context={"request": request})
+        return Response({"results": serializer.data},
+            status=status.HTTP_200_OK,)
+
 class ReviewView(APIView):
     permission_classes = [IsAuthenticated]
-    def put(self, request, store_id, review_id):
+
+    def get(self, request, review_id):
+
+        review = get_object_or_404(Review, id=review_id)
+        serializer = ReviewSerializer(review)
+        return Response({"results": serializer.data},
+            status=status.HTTP_200_OK,)
+    
+    def put(self, request, review_id):
         # 리뷰 로드
         review = (
             Review.objects.select_related("store", "user")
@@ -92,9 +118,6 @@ class ReviewView(APIView):
         if not review:
             return Response({"detail": "Review not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # store 일치 검증
-        if review.store_id != store_id:
-            return Response({"detail": "Mismatched store"}, status=400)
         # 권한 검사: 작성자만 허용
         if review.user_id != request.user.user_id:
             return Response({"detail": "권한이 없습니다."}, status=status.HTTP_403_FORBIDDEN)
@@ -110,14 +133,10 @@ class ReviewView(APIView):
         out = ReviewSerializer(review, context={"request": request})
         return Response(out.data, status=status.HTTP_200_OK)
     
-    def delete(self, request, store_id, review_id):
+    def delete(self, request, review_id):
         review = Review.objects.filter(id=review_id).first()
         if not review:
             return Response({"detail": "Review not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        # store 일치 검증
-        if review.store_id != store_id:
-            return Response({"detail": "Mismatched store"}, status=400)
         
         if review.user_id != request.user.user_id:
             return Response({"detail": "권한이 없습니다."}, status=status.HTTP_403_FORBIDDEN)

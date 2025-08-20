@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from .serializers import *
 from rest_framework import status
-
+from django.shortcuts import get_object_or_404 
 from rest_framework.permissions import IsAuthenticated #logout
 from django.contrib.auth import logout #logout
 
@@ -77,3 +77,11 @@ class LogoutView(APIView):
     def post(self, request):
         logout(request)
         return Response({"message": "logout success!"}, status=status.HTTP_200_OK)
+    
+class UserInfoView(APIView):
+    def get(self, request, user_id):
+
+        user = get_object_or_404(User, user_id=user_id)
+        serializer = UserSerializer(user)
+        return Response({"results": serializer.data},
+            status=status.HTTP_200_OK,)
