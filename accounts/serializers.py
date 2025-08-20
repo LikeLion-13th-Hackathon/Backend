@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import User
+from reviews.models import Review
 
 # 회원가입용 시리얼라이저
 class RegisterSerializer(serializers.ModelSerializer):
@@ -56,6 +57,22 @@ class AuthSerializer(serializers.Serializer):
         return data
 
 class UserSerializer(serializers.ModelSerializer):
+    visited_count = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = "__all__"
+        fields = [
+            "user_id", "email", "username", "nickname",
+            "age", "nationality", "profile_image",
+            "reward_count", "visited_count",
+        ]
+
+    def get_visited_count(self, obj):
+        # 유저가 리뷰를 남긴 상점의 "서로 다른" 개수
+        return (
+            Review.objects
+            .filter(user=obj)
+            .values("store_id")
+            .distinct()
+            .count()
+        )
