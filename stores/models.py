@@ -4,10 +4,10 @@ from markets.models import Market
 
 class Store(models.Model):
     store_id = models.AutoField(primary_key=True)
-    market = models.ForeignKey(Market, on_delete=models.CASCADE, default =None) 
+    market = models.ForeignKey(Market, on_delete=models.CASCADE) 
     
     store_name = models.CharField(max_length=40)
-    category = models.CharField(max_length=40, default=None)
+    category = models.CharField(max_length=40, default='')
     road_address = models.CharField(max_length=100, unique=True)
     street_address = models.CharField(max_length=100, unique=True)
     store_english = models.CharField(max_length=40)
