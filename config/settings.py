@@ -79,12 +79,18 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    # 'django.middleware.csrf.CsrfViewMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     # "allauth.account.middleware.AccountMiddleware",
 ]
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://oyes-hackathon.o-r.kr',
+    'https://www.oyes-hackathon.o-r.k'
+]
+
 
 ROOT_URLCONF = 'config.urls'
 
@@ -176,6 +182,8 @@ CORS_ALLOWED_ORIGINS = [    # 프론트 배포 후 프론트 도메인으로 변
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:5173", # 프론트 - 권민정
+    "http://oyes-hackathon.o-r.kr",
+    "https://oyes-hackathon.o-r.kr"
 ]
 
 ### LOGIN ###
