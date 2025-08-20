@@ -17,6 +17,8 @@ import uuid
 import json
 import requests
 import logging
+import re
+from rest_framework.permissions import IsAuthenticated
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +105,7 @@ def parse_number(value):
         return None
     
 class ReceiptView(APIView):
+    permission_classes = [IsAuthenticated]
     def post(self, request):
         # 1) 이미지 파일 받기
         image_file = request.FILES.get("file")
@@ -234,11 +237,26 @@ def normalize_address(addr: str) -> str:
     if not addr:
         return ""
     s = str(addr).strip()
+
+    # 문자열 전체가 괄호로 시작·끝하면 한 겹 벗기기((), [], {})
+    # ex) "(서울 중구 ...)" -> "서울 중구 ..."
+    pairs = [("(", ")"), ("[", "]"), ("{", "}")]
+    changed = True
+    while changed and s:
+        changed = False
+        for left, right in pairs:
+            if len(s) >= 2 and s[0] == left and s[-1] == right:
+                s = s[1:-1].strip()
+                changed = True
     # 다중 공백 -> 하나
     s = " ".join(s.split())
     # 쉼표/마침표만 제거(하이픈은 유지)
     for ch in [",", "."]:
         s = s.replace(ch, " ")
+    # 3) 괄호 안의 내용 제거
+    s = re.sub(r"\([^)]*\)", " ", s)  # ()
+    s = re.sub(r"\[[^\]]*\]", " ", s) # []
+    s = re.sub(r"\{[^}]*\}", " ", s)  # {}
     # 특별시 변환
     for token in ("서울특별시", "서울시"):
         s = s.replace(token, "서울")
@@ -287,6 +305,7 @@ def compare_address(ocr_addr: str, roadname_addr: str | None, number_addr: str |
 
 
 class ReceiptAddressCompareView(APIView):
+    permission_classes = [IsAuthenticated]
     def post(self, request):
 
         image_uid = request.data.get("image_uid")
@@ -324,9 +343,9 @@ class ReceiptAddressCompareView(APIView):
 
         # 3) 현재 상점 주소 조회(도로명/지번)
         try:
-            current_store = Store.objects.get(id=store_id)
-            roadname_addr = current_store.roadname_address or ""
-            number_addr   = current_store.number_address or ""
+            current_store = Store.objects.get(pk=store_id)
+            roadname_addr = current_store.road_address or ""
+            number_addr   = current_store.street_address or ""
         except Store.DoesNotExist:
             # DB에 없으면 빈값 비교로 처리
             roadname_addr = ""
