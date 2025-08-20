@@ -10,7 +10,7 @@ from stores.models import Store
 
 class ReviewLikeToggleView(APIView):
     permission_classes = [IsAuthenticated]
-    def post(self, request, review_id):
+    def post(self, request, store_id, review_id):
         user = request.user
         try:
             # 좋아요 있으면 삭제
@@ -29,6 +29,9 @@ class ReviewLikeToggleView(APIView):
             else:
                 # 좋아요 없으면 생성
                 review = Review.objects.get(id=review_id)
+                # store 일치 검증
+                if review.store_id != store_id:
+                    return Response({"detail": "Mismatched store"}, status=400)
                 ReviewLike.objects.create(user=user, review=review)
                 Review.objects.filter(id=review_id).update(
                     likes_count=models.F("likes_count") + 1
