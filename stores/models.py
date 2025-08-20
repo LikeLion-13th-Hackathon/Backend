@@ -1,7 +1,6 @@
 from django.db import models
 from markets.models import Market
 
-
 class Store(models.Model):
     store_id = models.AutoField(primary_key=True)
     market = models.ForeignKey(Market, on_delete=models.CASCADE) 
