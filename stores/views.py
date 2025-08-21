@@ -21,7 +21,7 @@ class StoreList(generics.ListAPIView):
         market = self.request.query_params.get('market')
         category = self.request.query_params.get('category')
         sort_by = self.request.query_params.get('sort_by')
-        search_query = self.request.query_params.get('search_query')
+        search_query = self.request.query_params.get('search_by')
 
         # 필터링
         if market:
@@ -45,3 +45,20 @@ class StoreList(generics.ListAPIView):
             return queryset.order_by('-review_count')
         
         return queryset.order_by('store_english') 
+
+class StoreDetail(generics.RetrieveAPIView):
+    queryset = Store.objects.all()
+    serializer_class = StoreSerializer
+    lookup_field = 'store_id' 
+    
+    def get_queryset(self):
+        queryset = super().get_queryset().annotate(review_count=Count('reviews'))
+
+        most_liked_reviews_prefetch = Prefetch(
+            'reviews',
+            queryset=Review.objects.order_by('-likes_count'),
+            to_attr='most_liked_review_obj'
+        )
+        queryset = queryset.prefetch_related(most_liked_reviews_prefetch)
+        
+        return queryset
