@@ -11,6 +11,5 @@ urlpatterns = [
     path("login/", AuthView.as_view()), 
     path("logout/", LogoutView.as_view()), 
     path("mypage/", UserInfoView.as_view()),
-    path('mypage/reward/', MyRewardHistoryListView.as_view()),
-    path('reward/', RewardChangeView.as_view())
+    path('reward/', RewardView.as_view())
 ]
