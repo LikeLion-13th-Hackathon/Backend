@@ -4,4 +4,4 @@ from rest_framework import serializers
 class ReceiptSerializer(serializers.ModelSerializer):
     class Meta:
         model = Receipt
-        fields = "__all__"
+        fields = ["store_name", "store_address", "payment_datetime", "total_amount"]

@@ -229,7 +229,12 @@ class ReceiptView(APIView):
             except Exception as e:
                 logger.warning("Failed to combine payment_datetime: %s", e)
 
-        saved.append(row)
+        saved.append({
+        "store_name": row.store_name,
+        "store_address": row.store_address,
+        "payment_datetime": row.payment_datetime,
+        "total_amount": row.total_amount,
+        })
         resp_saved = ReceiptSerializer(saved, many=True).data
         return Response({"saved": resp_saved, "skipped": skipped}, status=status.HTTP_201_CREATED if saved else status.HTTP_200_OK)
     

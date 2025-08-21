@@ -16,6 +16,5 @@ urlpatterns = [
     path('market/', include('markets.urls')),
     path('menu/', include('menu.urls')),
     path('ai/', include('ai.urls')),
-    path('store/<int:store_id>/reviews/', 
-         include('reviews.urls'))
+    path('reviews/', include('reviews.urls'))
 ]

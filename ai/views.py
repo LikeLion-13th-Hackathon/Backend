@@ -15,8 +15,6 @@ from .models import FeedbackTag, Feedback, Topic
 from django.db.models import Count, Q
 from rest_framework.permissions import IsAuthenticated
 
-DEFAULT_THREAD_ID = "default"
-
 ROLE_GUIDES = {
     "store": """[ROLE=STORE]
 - 가게 직원 시점으로 응답
@@ -50,7 +48,7 @@ def get_threads(session):
 
 def ensure_thread(session, thread_id: str | None):
     threads = get_threads(session)
-    tid = thread_id or DEFAULT_THREAD_ID
+    tid = thread_id
     if tid not in threads:
         threads[tid] = []
     return tid, threads[tid]
@@ -163,21 +161,11 @@ class AiChatView(APIView):
         topic = request.data.get("topic")
         retry = bool(request.data.get("retry"))
 
-        # review_tags= {"Delicious": 42, "Clean": 18, "Recommended": 27, "Hard to find": 100, "Spacious": 12, "English spoken": 9}
-        # dietary_restrictions= {"Vegan": 8, "Pork-free": 20, "Beef-free": 4, "Nut-free": 2}
-        # spicy_level= {"Mild": 10, "Medium": 35, "Spicy": 15, "Very Spicy": 6}
-
-        # # 상위 k개 키
-        # review_top2 = top_k_keys(review_tags, 2)
-        # dietary_top2 = top_k_keys(dietary_restrictions, 2)
-        # spicy_top = top_k_keys(spicy_level, 1)
-
-        # 1) 상위 태그 집계 불러오기 (전역/최근/유저별 등 필터는 필요 시 인자 추가)
+        # 피드백 태그 중 집계 많은 상위 3개 불러옴
         top_tags = get_top_feedback_tags(limit=3)
         pos_top3 = top_tags.get("positive", [])
         neg_top3 = top_tags.get("negative", [])
 
-        # 2) 프롬프트에 삽입할 문구 구성 (neutral 제외)
         reinforce_line = (
             f"긍정 태그 상위 3개를 자연스럽게 강화해 대화를 생성하시오: {', '.join(pos_top3)}."
             if pos_top3 else "강화할 긍정 태그가 없습니다."
@@ -187,11 +175,10 @@ class AiChatView(APIView):
             if neg_top3 else "보완할 부정 태그가 없습니다."
         )
 
-        # 첫 요청: category에 속하는 가게 입장에서 topic과 관련된 대화를 시작하는 3가지 한국어 대화 생성해.
+        # 첫 요청: "category에 속하는 'topic'과 매우 연관된, store 입장에서 고객에게 말을 거는 3가지 한국어 대화 생성해."
         prompt = (
             '각 항목은 {korean, romanization, english_gloss} 필드를 포함해. '
             "romanization 필드는 라틴 알파벳(ASCII A-Z/a-z), 공백과 기본 구두점만 허용. 한글/숫자/기타 기호가 하나라도 포함되면 응답은 무효이며 즉시 재생성. "
-            # "romanization와 english_gloss는 '영어'로만 출력. 한국어 절대 금지 "
             "romanization must use Latin letters only (ASCII A-Z/a-z), spaces, and basic punctuation. Do not include any Korean characters or digits. "
             "english_gloss must be in English (ASCII letters), no Korean. "
             '각 korean은 15자 이내. '
@@ -208,10 +195,12 @@ class AiChatView(APIView):
         # 역할 파라미터 수신
         role = get_role(request)
         role_guide = ROLE_GUIDES[role]
-        # review_guide = REVIEW_GUIDE.format(review_top2=review_top2, dietary_top2=dietary_top2, spicy_top=spicy_top)
 
         # 프론트에서 요청할 때 thread_id에 topic을 넣어줘야 함!
-        thread_id = (request.data.get("thread_id") or DEFAULT_THREAD_ID).strip()
+        raw_tid = request.data.get("thread_id")
+        thread_id = str(raw_tid).strip()
+
+        # 유효한 thread_id만 ensure
         thread_id, history = ensure_thread(request.session, thread_id)
 
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
@@ -226,7 +215,6 @@ class AiChatView(APIView):
         if retry:
             contents.append({"role": "user", "parts": [{"text": f"이전 출력과 다른 새로운 대화 3개를 {role} 입장에서 생성. 표현/내용 중복 금지."}]})
         contents.append({"role": "user", "parts": [{"text": role_guide}]}) # 가이드 먼저
-        # contents.append({"role":"user","parts":[{"text": review_guide}]})
         contents.extend([normalize_turn(t) for t in trimmed]) # 과거 히스토리
         contents.append({"role": "user", "parts": [{"text": raw_user_input}]}) # 원문
         contents.append({"role": "user", "parts": [{"text": prompt}]}) # 출력 규칙
@@ -295,25 +283,30 @@ class AiChatView(APIView):
             status=status.HTTP_200_OK,
         )
     
-    # 단일 스레드 삭제
+    # 전체 스레드 삭제
     def delete(self, request):
-        thread_id = (request.data.get("thread_id") or request.query_params.get("thread_id") or "").strip()
-        if not thread_id:
-            return Response({"detail": "thread_id is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        threads = get_threads(request.session)
-        if thread_id not in threads:
-            return Response({"detail": f"thread_id '{thread_id}' not found", "threads_index": list(threads.keys())}, status=status.HTTP_404_NOT_FOUND)
-
-        delete_thread(request.session, thread_id)
-        return Response({"detail": "deleted", "thread_id": thread_id, "threads_index": list(get_threads(request.session).keys())}, status=status.HTTP_200_OK)
-
-# 전체 스레드 삭제 (채팅 종료)
-class ClearAllThreadsView(APIView):
-    permission_classes = [IsAuthenticated]
-    def post(self, request):
         clear_all_threads(request.session)
         return Response({"detail": "all threads cleared", "threads_index": []}, status=status.HTTP_200_OK)
+    
+    # 단일 스레드 삭제 - 필요?
+    # def delete(self, request):
+    #     thread_id = request.data.get("thread_id")
+    #     if not thread_id:
+    #         return Response({"detail": "thread_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    #     threads = get_threads(request.session)
+    #     if thread_id not in threads:
+    #         return Response({"detail": f"thread_id '{thread_id}' not found", "threads_index": list(threads.keys())}, status=status.HTTP_404_NOT_FOUND)
+
+    #     delete_thread(request.session, thread_id)
+    #     return Response({"detail": "deleted", "thread_id": thread_id, "threads_index": list(get_threads(request.session).keys())}, status=status.HTTP_200_OK)
+
+# # 전체 스레드 삭제 (채팅 종료)
+# class ClearAllThreadsView(APIView):
+#     permission_classes = [IsAuthenticated]
+#     def delete(self, request):
+#         clear_all_threads(request.session)
+#         return Response({"detail": "all threads cleared", "threads_index": []}, status=status.HTTP_200_OK)
 
 class FeedbackView(APIView):
     permission_classes = [IsAuthenticated]
