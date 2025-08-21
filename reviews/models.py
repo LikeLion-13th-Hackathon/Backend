@@ -51,7 +51,7 @@ class ReviewTag(models.Model):
 class Review(BaseModel):
     id = models.AutoField(primary_key=True)
     store = models.ForeignKey(Store, on_delete=models.CASCADE, null=True, blank=True, related_name='reviews')
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviews') 
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='reviews') 
     comment = models.TextField(blank=True, default="", max_length=3000)
     likes_count = models.PositiveIntegerField(default=0)
     tags = models.ManyToManyField(ReviewTag, related_name="reviews", blank=True)

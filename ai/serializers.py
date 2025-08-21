@@ -2,7 +2,32 @@ from rest_framework import serializers
 from .models import Feedback, Topic
 
 class ChatRequestSerializer(serializers.Serializer):
-    message = serializers.CharField()
+    thread_id = serializers.CharField(max_length=64, allow_blank=False)
+    category = serializers.ChoiceField(
+        choices=("fresh", "snacks", "goods", "restaurants"),
+    )
+    topic = serializers.CharField(max_length=100,allow_blank=False)
+    retry = serializers.BooleanField()
+    role = serializers.ChoiceField(choices=("store", "user"))
+    message = serializers.CharField(allow_blank=False)
+
+    def validate_thread_id(self, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise serializers.ValidationError("thread_id는 비어 있을 수 없습니다.")
+        return v
+                                              
+    def validate_topic(self, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise serializers.ValidationError("topic은 비어 있을 수 없습니다.")
+        return v
+
+    def validate_message(self, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise serializers.ValidationError("message는 비어 있을 수 없습니다.")
+        return v
 
 class FeedbackClassifySerializer(serializers.Serializer):
     thumbs = serializers.BooleanField(required=True)

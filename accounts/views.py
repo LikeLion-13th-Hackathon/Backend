@@ -4,9 +4,10 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from .serializers import *
 from rest_framework import status
-
+from django.shortcuts import get_object_or_404 
 from rest_framework.permissions import IsAuthenticated #logout
 from django.contrib.auth import logout #logout
+from django.db.models import Count
 
 from json import JSONDecodeError
 from django.http import JsonResponse
@@ -77,3 +78,14 @@ class LogoutView(APIView):
     def post(self, request):
         logout(request)
         return Response({"message": "logout success!"}, status=status.HTTP_200_OK)
+    
+class UserInfoView(APIView):
+    def get(self, request, user_id):
+
+        user_qs = User.objects.filter(user_id=user_id).annotate(
+            visited_count_calc=Count("reviews__store", distinct=True)  # related_name이 review_set이면 "review__store"
+        )
+        user = get_object_or_404(user_qs)
+        serializer = UserSerializer(user)
+        return Response({"results": serializer.data},
+            status=status.HTTP_200_OK,)
