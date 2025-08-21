@@ -49,7 +49,8 @@ class StoreReviewListView(APIView):
 
     def post(self, request, store_id):
         # 스토어 존재 검증
-        if not Store.objects.filter(pk=store_id).exists():
+        store = Store.objects.filter(pk=store_id).first()
+        if not store:
             return Response({"detail": "Store not found"}, status=status.HTTP_404_NOT_FOUND)
 
         data = request.data.copy()
