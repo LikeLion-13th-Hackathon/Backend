@@ -128,8 +128,25 @@ def add_reward(user_id: int, delta: int, caption: str = "") -> dict:
             'history_id': rh.id,
         }
     
-class RewardChangeView(APIView):
+class RewardView(APIView):
     permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        qs = (
+            RewardHistory.objects.filter(user_id=user.user_id)
+            .select_related("user")
+            .order_by("-created")  # 필요시 created 기준으로 변경
+        )
+        serializer = RewardHistoryReadSerializer(qs, many=True, context={"request": request})
+        return Response(
+            {
+                "balance": user.reward_count,
+                "results": serializer.data
+                },
+            status=status.HTTP_200_OK,
+        )
+
 
     def post(self, request):
         serializer = RewardChangeSerializer(data=request.data, context={"request": request})
@@ -157,17 +174,5 @@ class RewardChangeView(APIView):
             return Response({"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND)
         except ValidationError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        
-class MyRewardHistoryListView(APIView):
-    permission_classes = [IsAuthenticated]
+    
 
-    def get(self, request):
-        user = request.user
-        qs = (
-            RewardHistory.objects.filter(user_id=user.user_id)
-            .select_related("user")
-            .order_by("-created")  # 필요시 created 기준으로 변경
-        )
-        serializer = RewardHistoryReadSerializer(qs, many=True, context={"request": request})
-        return Response({"results": serializer.data},
-            status=status.HTTP_200_OK,)
