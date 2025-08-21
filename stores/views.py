@@ -45,3 +45,20 @@ class StoreList(generics.ListAPIView):
             return queryset.order_by('-review_count')
         
         return queryset.order_by('store_english') 
+
+class StoreDetail(generics.RetrieveAPIView):
+    queryset = Store.objects.all()
+    serializer_class = StoreSerializer
+    lookup_field = 'store_id' 
+    
+    def get_queryset(self):
+        queryset = super().get_queryset().annotate(review_count=Count('reviews'))
+
+        most_liked_reviews_prefetch = Prefetch(
+            'reviews',
+            queryset=Review.objects.order_by('-likes_count'),
+            to_attr='most_liked_review_obj'
+        )
+        queryset = queryset.prefetch_related(most_liked_reviews_prefetch)
+        
+        return queryset
