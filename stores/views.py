@@ -21,7 +21,7 @@ class StoreList(generics.ListAPIView):
         market = self.request.query_params.get('market')
         category = self.request.query_params.get('category')
         sort_by = self.request.query_params.get('sort_by')
-        search_query = self.request.query_params.get('search_query')
+        search_query = self.request.query_params.get('search_by')
 
         # 필터링
         if market:

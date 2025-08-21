@@ -10,7 +10,9 @@ class Menu(models.Model):
 
     korean = models.CharField(max_length = 40)
     english = models.CharField(max_length = 40)
-    price = models.IntegerField()
+    ex = models.CharField(max_length = 255, default=None)
+
+    price = models.CharField(max_length = 10)
 
     class Meta: 
         db_table = "menu"
