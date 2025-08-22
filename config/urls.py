@@ -6,6 +6,8 @@ from receipts.views import *
 from stores.views import *
 from markets.views import *
 from menu.views import *
+from image.views import *
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -16,5 +18,7 @@ urlpatterns = [
     path('market/', include('markets.urls')),
     path('menu/', include('menu.urls')),
     path('ai/', include('ai.urls')),
-    path('reviews/', include('reviews.urls'))
+    path('reviews/', include('reviews.urls')),
+    path('images/', include('image.urls'))
+
 ]

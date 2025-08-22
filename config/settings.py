@@ -64,6 +64,7 @@ PROJECT_APPS = [
     'menu',
     'ai',
     "reviews",
+    'image',
 ]
 
 THIRD_PARTY_APPS = [
