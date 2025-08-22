@@ -1,5 +1,8 @@
 from rest_framework import serializers
 from .models import Review, ReviewTag
+from accounts.models import User
+from django.db import transaction
+from django.db.models import F
 
 SINGLE_SELECT_GROUPS = {
     ("restaurants", "Spicy Level"),
@@ -79,20 +82,33 @@ class ReviewCreateSerializer(serializers.ModelSerializer, TagValidationMixin):
         attrs.pop("tag_ids", None)  # 안전장치
         return attrs
 
+    @transaction.atomic
     def create(self, validated_data):
+        user = self.context["request"].user
+        store = validated_data["store"]
         tag_ids = validated_data.pop("_resolved_tag_ids", [])
-        request = self.context.get("request")
 
         # comment 길이 상한 방어 (최소는 validator에서 이미 확인)
         comment = validated_data.get("comment") or ""
         validated_data["comment"] = comment[:3000]
 
         review = Review.objects.create(
-            user=getattr(request, "user", None),
+            user=user,
             **validated_data
         )
+
         if tag_ids:
             review.tags.add(*tag_ids)
+
+        is_first_for_store = not Review.objects.filter(
+            user=user, store=store
+        ).exclude(id=review.id).exists()
+
+        if is_first_for_store:
+            u = User.objects.select_for_update().get(pk=user.user_id)
+            u.visited_count = F("visited_count") + 1
+            u.save(update_fields=["visited_count"])
+
         return review
     
 class ReviewUpdateSerializer(serializers.ModelSerializer, TagValidationMixin):
