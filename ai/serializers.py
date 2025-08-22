@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Feedback, Topic
+from .models import Feedback, Topic, Conversation
 
 class ChatRequestSerializer(serializers.Serializer):
     thread_id = serializers.CharField(max_length=64, allow_blank=False)
@@ -41,3 +41,33 @@ class TopicSerializer(serializers.ModelSerializer):
         # 모델에서 어떤 필드를 가져올지
         # 전부 가져오고 싶을 때
         fields = "__all__"
+
+class TopicMiniSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Topic
+        fields = ["id", "topic"]  # Topic에 name 필드가 있다고 가정
+
+class ConversationSerializer(serializers.ModelSerializer):
+    # 토픽 id 리스트로 입출력
+    topics = serializers.PrimaryKeyRelatedField(
+        queryset=Topic.objects.all(),
+        many=True
+    )
+
+    topics_detail = TopicMiniSerializer(source="topics", many=True, read_only=True)
+
+    class Meta:
+        model = Conversation
+        fields = ["id", "topics", "topics_detail", "comment"]
+
+    def validate_topics(self, value):
+        if not value:
+            raise serializers.ValidationError("topics는 최소 1개 이상이어야 합니다.")
+        return value
+
+    def create(self, validated_data):
+        topics = validated_data.pop("topics", [])
+        user = self.context["request"].user
+        conv = Conversation.objects.create(user=user, **validated_data)
+        conv.topics.set(topics)
+        return conv
