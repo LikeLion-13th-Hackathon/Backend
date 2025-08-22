@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import Store
 from reviews.serializers import ReviewSerializer
 from menu.serializers import MenuSerializer
+from markets.serializers import MarketSerializer
 
 
 class StoreSerializer(serializers.ModelSerializer):
@@ -11,7 +12,7 @@ class StoreSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Store
-        fields = ['store_id', 'store_name', 'store_english', 'road_address', 'review_count', 'most_liked_review', 'market_id', 'menu_list']
+        fields = ['store_id', 'store_name', 'store_english', 'category', 'road_address', 'review_count', 'most_liked_review', 'market_id', 'menu_list']
 
     def get_most_liked_review(self, obj):
         if hasattr(obj, 'most_liked_review_obj') and obj.most_liked_review_obj:
