@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import User
+from .models import User, RewardHistory
 from reviews.models import Review
 
 # 회원가입용 시리얼라이저
@@ -76,3 +76,25 @@ class UserSerializer(serializers.ModelSerializer):
             .distinct()
             .count()
         )
+    
+class RewardChangeSerializer(serializers.Serializer):
+    delta = serializers.IntegerField()  # 음수/양수 모두 허용
+    caption = serializers.CharField(max_length=100, allow_blank=False)
+
+    def validate_delta(self, value):
+        if value == 0:
+            raise serializers.ValidationError("delta는 0이 아니어야 합니다.")
+        return value
+    
+    def validate_caption(self, value: str):
+        if value is None:
+            raise serializers.ValidationError("caption은 필수입니다.")
+        # 공백만 있는 경우 금지
+        if value.strip() == "":
+            raise serializers.ValidationError("caption은 비어 있을 수 없습니다.")
+        return value.strip()
+    
+class RewardHistoryReadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RewardHistory
+        fields = ("id", "caption", "point", "balance", "created")

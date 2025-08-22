@@ -33,3 +33,17 @@ class User(AbstractUser):
             return User.objects.get(username=username)
         except User.DoesNotExist:
             return None
+        
+class RewardHistory(models.Model):
+    id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reward_histories') 
+    caption = models.CharField(max_length=100)
+    point = models.IntegerField()
+    balance = models.IntegerField()
+    created = models.DateTimeField(auto_now_add=True) # 객체를 생성할 때 날짜와 시간 저장
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', '-created']),
+        ]
+        ordering = ['-created']
