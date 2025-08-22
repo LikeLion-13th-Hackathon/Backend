@@ -119,13 +119,14 @@ def add_reward(user_id: int, delta: int, caption: str = "") -> dict:
         rh = RewardHistory.objects.create(
             user=user,
             caption=caption or ("적립" if delta > 0 else "차감"),
-            point=delta
+            point=delta,
+            balance=new_balance
         )
 
         return {
-            'balance': new_balance,
-            'changed': delta,
             'history_id': rh.id,
+            'changed': delta,
+            'balance': rh.balance
         }
     
 class RewardView(APIView):
@@ -141,7 +142,6 @@ class RewardView(APIView):
         serializer = RewardHistoryReadSerializer(qs, many=True, context={"request": request})
         return Response(
             {
-                "balance": user.reward_count,
                 "results": serializer.data
                 },
             status=status.HTTP_200_OK,
@@ -158,7 +158,7 @@ class RewardView(APIView):
             result = add_reward(
                 user_id=user_id,
                 delta=data['delta'],
-                caption=data['caption'],
+                caption=data['caption']
             )
             return Response(
                 {

@@ -39,6 +39,7 @@ class RewardHistory(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reward_histories') 
     caption = models.CharField(max_length=100)
     point = models.IntegerField()
+    balance = models.IntegerField()
     created = models.DateTimeField(auto_now_add=True) # 객체를 생성할 때 날짜와 시간 저장
 
     class Meta:

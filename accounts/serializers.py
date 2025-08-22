@@ -97,4 +97,4 @@ class RewardChangeSerializer(serializers.Serializer):
 class RewardHistoryReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = RewardHistory
-        fields = ("id", "caption", "point", "created")
+        fields = ("id", "caption", "point", "balance", "created")
