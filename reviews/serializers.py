@@ -143,11 +143,17 @@ class ReviewUpdateSerializer(serializers.ModelSerializer, TagValidationMixin):
         # 태그 전체 교체
         instance.tags.set(tag_ids)
         return instance
-    
+
+class PublicUserMiniSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ("user_id", "nickname", "profile_image")
+        
 # 리뷰 읽기용
 class ReviewSerializer(serializers.ModelSerializer):
     tags = ReviewTagSerializer(many=True, read_only=True)
     liked = serializers.SerializerMethodField()
+    author = serializers.SerializerMethodField()
 
     class Meta:
         model = Review
@@ -163,5 +169,10 @@ class ReviewSerializer(serializers.ModelSerializer):
             return False
         return obj.likes.filter(user=request.user).exists()
 
+    def get_author(self, obj):
+            u = getattr(obj, "user", None)
+            if not u:
+                return None
+            return PublicUserMiniSerializer(u, context=self.context).data
 
 
