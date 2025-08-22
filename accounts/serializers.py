@@ -98,3 +98,13 @@ class RewardHistoryReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = RewardHistory
         fields = ("id", "caption", "point", "balance", "created")
+
+class PublicUserSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = User
+        fields = [
+            "user_id",
+            "nickname",
+            "profile_image"
+        ]
