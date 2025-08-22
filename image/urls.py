@@ -3,5 +3,5 @@ from django.urls import path
 from .views import GetPresignedUrlView
 
 urlpatterns = [
-    path('get-presigned-url/', GetPresignedUrlView.as_view(), name='get-presigned-url'),
+    path('', GetPresignedUrlView.as_view(), name='get-presigned-url'),
 ]
