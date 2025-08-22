@@ -176,3 +176,11 @@ class RewardView(APIView):
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
 
+class PublicUserDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, user_id):
+        user_qs = User.objects.filter(user_id=user_id)
+        user = get_object_or_404(user_qs)
+        data = PublicUserSerializer(user, context={"request": request}).data
+        return Response({"results": data})
