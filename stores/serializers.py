@@ -11,7 +11,7 @@ class StoreSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Store
-        fields = ['store_id', 'store_name', 'store_english', 'review_count', 'most_liked_review', 'market_id', 'menu_list']
+        fields = ['store_id', 'store_name', 'store_english', 'road_address', 'review_count', 'most_liked_review', 'market_id', 'menu_list']
 
     def get_most_liked_review(self, obj):
         if hasattr(obj, 'most_liked_review_obj') and obj.most_liked_review_obj:
