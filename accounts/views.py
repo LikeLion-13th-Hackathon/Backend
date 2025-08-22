@@ -61,6 +61,7 @@ class AuthView(APIView):
                     "id": user.user_id,
                     "username": user.username,
                     "email": user.email,
+                    "profile_image": user.profile_image
                 },
                 "message": "login success!",
                 "token": {
