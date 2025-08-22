@@ -21,13 +21,10 @@ class Receipt(BaseModel):
 
     # storeInfo 요약
     store_name = models.CharField(max_length=255, blank=True, null=True)      # 점포 이름
-    store_biz_no = models.CharField(max_length=64, blank=True, null=True)     # 사업자등록번호
     store_address = models.TextField(blank=True, null=False)                  # 점포 주소
-    store_tels = models.JSONField(blank=True, null=True)                      # 점포 번호
 
     # 합계/금액 요약
     total_amount = models.DecimalField(max_digits=18, decimal_places=2, blank=True, null=True)  # 총금액
-    currency = models.CharField(max_length=8, blank=True, null=True, default="KRW")
 
     # 원본 보존: receipt.result 원본 그대로 저장
     receipt_result_raw = models.JSONField(blank=True, null=True)  # images[i].receipt.result 전체 JSON

@@ -3,5 +3,5 @@ from receipts.views import *
 
 urlpatterns = [
     path('', ReceiptView.as_view()),
-    path('compare/', ReceiptAddressCompareView.as_view()),
+    path('match/', ReceiptAddressCompareView.as_view()),
 ]
