@@ -13,7 +13,7 @@ class Command(BaseCommand):
         # S3 연결 정보를 환경 변수 또는 직접 설정합니다.
         AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
         AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
-        BUCKET_NAME = 'oyes_hackathon'  # 실제 S3 버킷 이름으로 변경
+        BUCKET_NAME = 'oyes-hackathon'  # 실제 S3 버킷 이름으로 변경
         OBJECT_KEY = 'store/dummy.csv' # S3에 저장된 파일 경로 (예: dummy/store_dummy.csv)
 
         # boto3 클라이언트 생성
