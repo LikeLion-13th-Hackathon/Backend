@@ -58,5 +58,6 @@ class Topic(models.Model):
 class Conversation(models.Model):
     id = models.AutoField(primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='conversations')
+    category = models.CharField(max_length=40, null=False)
     topics = models.ManyToManyField(Topic, related_name="conversations", blank=False)
     comment = models.TextField(blank=True, default="", max_length=500)

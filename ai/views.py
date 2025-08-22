@@ -172,12 +172,30 @@ def build_menu_guide(menu_texts: list[str]) -> str:
 class TopicListView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
-        category = request.query_params.get("category")
-        qs = Topic.objects.all()
-        if category:
-            qs = qs.filter(category=category)
-        serializer = TopicSerializer(qs, many=True)
-        return Response(serializer.data)
+        category = (request.query_params.get("category") or "").strip()
+        if not category:
+            return Response({"detail": "category is required"}, status=status.HTTP_400_BAD_REQUEST)
+        all_qs = Topic.objects.filter(category=category).order_by("id")
+        all_data = TopicSerializer(all_qs, many=True).data
+
+        conv_filter = Q(conversations__category=category)
+
+        top_qs = (
+            Topic.objects
+            .annotate(conv_count=Count("conversations", filter=conv_filter, distinct=True))
+            # 모두 0이거나 동일하면 id 순으로 → 보조정렬 id 적용
+            .order_by("-conv_count", "id")[:1]
+        )
+        most_selected = []
+        for t in top_qs:
+            item = TopicSerializer(t).data
+            item["conv_count"] = getattr(t, "conv_count", 0)
+            most_selected.append(item)
+
+        return Response(
+            {"most_selected": most_selected, "all": all_data},
+            status=status.HTTP_200_OK,
+        )
 
 class AiChatView(APIView):
     permission_classes = [IsAuthenticated]
@@ -324,26 +342,6 @@ class AiChatView(APIView):
     def delete(self, request):
         clear_all_threads(request.session)
         return Response({"detail": "all threads cleared", "threads_index": []}, status=status.HTTP_200_OK)
-    
-    # 단일 스레드 삭제 - 필요?
-    # def delete(self, request):
-    #     thread_id = request.data.get("thread_id")
-    #     if not thread_id:
-    #         return Response({"detail": "thread_id is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-    #     threads = get_threads(request.session)
-    #     if thread_id not in threads:
-    #         return Response({"detail": f"thread_id '{thread_id}' not found", "threads_index": list(threads.keys())}, status=status.HTTP_404_NOT_FOUND)
-
-    #     delete_thread(request.session, thread_id)
-    #     return Response({"detail": "deleted", "thread_id": thread_id, "threads_index": list(get_threads(request.session).keys())}, status=status.HTTP_200_OK)
-
-# # 전체 스레드 삭제 (채팅 종료)
-# class ClearAllThreadsView(APIView):
-#     permission_classes = [IsAuthenticated]
-#     def delete(self, request):
-#         clear_all_threads(request.session)
-#         return Response({"detail": "all threads cleared", "threads_index": []}, status=status.HTTP_200_OK)
 
 class FeedbackView(APIView):
     permission_classes = [IsAuthenticated]
