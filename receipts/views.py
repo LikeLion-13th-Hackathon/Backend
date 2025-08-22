@@ -305,10 +305,8 @@ def best_of_store(ocr_addr: str, store) -> dict:
 
 class ReceiptAddressCompareView(APIView):
     permission_classes = [IsAuthenticated]
-    def post(self, request):
-
-        receipt_id = request.data.get("receipt_id")
-
+    def get(self, request):
+        receipt_id = self.request.query_params.get('receipt_id')
         if not receipt_id:
             return Response({"detail": "receipt_id는 필수입니다."}, status=400)
        
