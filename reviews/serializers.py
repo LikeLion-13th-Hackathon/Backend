@@ -171,6 +171,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             return None
         return {
             "user_id": u.user_id,
+            "username": u.username,
             "nickname": u.nickname,
             "profile_image": u.profile_image,
         }
