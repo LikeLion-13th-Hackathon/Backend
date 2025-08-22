@@ -1,34 +1,24 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import User
+from .models import User, RewardHistory
+from reviews.models import Review
 
 # 회원가입용 시리얼라이저
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(required=True)
-    username = serializers.CharField(required=True)
-    email = serializers.CharField(required=True)
-
     class Meta:
         model = User
+        fields = [
+            'username', 'email', 'password',
+            'nickname', 'age', 'nationality', 'profile_image'
+        ]
 
-        # 필요한 필드값만 지정, 회원가입은 email까지 필요
-        fields = ['username', 'email', 'password']
-    
-    # create() 재정의
     def create(self, validated_data):
-    
-        # 비밀번호 분리
         password = validated_data.pop('password')
-
-        # user 객체 생성
         user = User(**validated_data)
-
-        # 비밀번호는 해싱해서 저장
         user.set_password(password)
         user.save()
-
         return user
-    
+
     # 이메일 유효성 검사 함수
     def validate_email(self, value):
         
@@ -43,41 +33,78 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
     
 # 로그인용 시리얼라이저
-class AuthSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(required=True)
-    password = serializers.CharField(required=True)
-    
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+class AuthSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        email = data.get("email")
+        password = data.get("password")
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("User not found")
+
+        if not user.check_password(password):
+            raise serializers.ValidationError("Incorrect email or password")
+
+        data["user"] = user
+        return data
+
+class UserSerializer(serializers.ModelSerializer):
+    visited_count = serializers.SerializerMethodField()
+
     class Meta:
         model = User
+        fields = [
+            "user_id", "email", "username", "nickname",
+            "age", "nationality", "profile_image",
+            "reward_count", "visited_count",
+        ]
 
-        # 로그인은 username과 password만 필요
-        fields = ['username', 'password']
-
-    # 로그인 유효성 검사 함수
-    def validate(self, data):
-        username = data.get('username', None)
-        password = data.get('password', None)
-		    
-		    # username으로 사용자 찾는 모델 함수
-        user = User.get_user_by_username(username=username)
-        
-        # 존재하는 회원인지 확인
-        if user is None:
-            raise serializers.ValidationError("User does not exist.")
-        else:
-			      # 비밀번호 일치 여부 확인
-            if not user.check_password(password):
-                raise serializers.ValidationError("Wrong password.")
-        
-        token = RefreshToken.for_user(user)
-        refresh_token = str(token)
-        access_token = str(token.access_token)
-
-        data = {
-            "user": user,
-            "refresh_token": refresh_token,
-            "access_token": access_token,
-        }
-
-        return data
+    def get_visited_count(self, obj):
+        # 유저가 리뷰를 남긴 상점의 "서로 다른" 개수
+        return (
+            Review.objects
+            .filter(user=obj)
+            .values("store_id")
+            .distinct()
+            .count()
+        )
     
+class RewardChangeSerializer(serializers.Serializer):
+    delta = serializers.IntegerField()  # 음수/양수 모두 허용
+    caption = serializers.CharField(max_length=100, allow_blank=False)
+
+    def validate_delta(self, value):
+        if value == 0:
+            raise serializers.ValidationError("delta는 0이 아니어야 합니다.")
+        return value
+    
+    def validate_caption(self, value: str):
+        if value is None:
+            raise serializers.ValidationError("caption은 필수입니다.")
+        # 공백만 있는 경우 금지
+        if value.strip() == "":
+            raise serializers.ValidationError("caption은 비어 있을 수 없습니다.")
+        return value.strip()
+    
+class RewardHistoryReadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RewardHistory
+        fields = ("id", "caption", "point", "balance", "created")
+
+class PublicUserSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = User
+        fields = [
+            "user_id",
+            "nickname",
+            "profile_image"
+        ]

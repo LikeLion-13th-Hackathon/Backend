@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
 
-class TestapiConfig(AppConfig):
+class ImageConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'testapi'
+    name = 'image'
