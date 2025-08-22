@@ -2,19 +2,18 @@ import boto3
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from django.conf import settings
 import uuid 
 
+
 class GetPresignedUrlView(APIView):
     def post(self, request, *args, **kwargs):
-        # 1. 클라이언트로부터 파일 이름 받기 (옵션)
-        # 클라이언트가 제공한 파일 이름 대신 서버에서 고유한 이름을 생성하는 것이 좋습니다.
         original_filename = request.data.get('filename')
         
         if not original_filename:
             return Response({'error': 'filename is required'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # 2. 고유한 파일 이름 생성
         file_extension = original_filename.split('.')[-1]
         unique_filename = f"{uuid.uuid4()}.{file_extension}"
         
@@ -46,3 +45,39 @@ class GetPresignedUrlView(APIView):
             })
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+class SaveProfileImageView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        s3_url = request.data.get('s3_url')
+
+        if not s3_url:
+            return Response({'error': 's3_url is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+
+        user.profile_image = s3_url
+        user.save()
+
+        return Response({
+            'message': 'Profile image URL saved successfully.',
+            's3_url': s3_url
+        }, status=status.HTTP_200_OK)
+    
+class GetUserProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        # 현재 로그인된 사용자의 객체를 가져옵니다.
+        user = request.user
+
+        # 사용자 프로필 정보를 JSON 형식으로 반환합니다.
+        # 이 데이터는 필요에 따라 더 많은 필드를 포함할 수 있습니다.
+        profile_data = {
+            'username': user.username,
+            'email': user.email,
+            'nickname': user.nickname,
+            'profile_image_url': user.profile_image,  # DB에 저장된 S3 URL
+        }
