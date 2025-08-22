@@ -182,6 +182,7 @@ class TopicListView(APIView):
 
         top_qs = (
             Topic.objects
+            .filter(category=category)
             .annotate(conv_count=Count("conversations", filter=conv_filter, distinct=True))
             # 모두 0이거나 동일하면 id 순으로 → 보조정렬 id 적용
             .order_by("-conv_count", "id")[:1]
