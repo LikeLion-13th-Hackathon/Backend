@@ -143,18 +143,20 @@ class ReviewUpdateSerializer(serializers.ModelSerializer, TagValidationMixin):
         # 태그 전체 교체
         instance.tags.set(tag_ids)
         return instance
-    
+        
 # 리뷰 읽기용
 class ReviewSerializer(serializers.ModelSerializer):
     tags = ReviewTagSerializer(many=True, read_only=True)
     liked = serializers.SerializerMethodField()
+    author = serializers.SerializerMethodField()
 
     class Meta:
         model = Review
         fields = [
             "id", "store", "user", "comment",
             "likes_count", "tags", "liked",
-            "created", "updated"
+            "created", "updated",
+            "author"
         ]
 
     def get_liked(self, obj):
@@ -162,6 +164,15 @@ class ReviewSerializer(serializers.ModelSerializer):
         if not request or not request.user or request.user.is_anonymous:
             return False
         return obj.likes.filter(user=request.user).exists()
-
+    
+    def get_author(self, obj):
+        u = getattr(obj, "user", None)
+        if not u:
+            return None
+        return {
+            "user_id": u.user_id,
+            "nickname": u.nickname,
+            "profile_image": u.profile_image,
+        }
 
 
