@@ -6,14 +6,17 @@ import os
 from django.conf import settings
 from rest_framework.views import APIView 
 from rest_framework.response import Response
+from django.shortcuts import get_object_or_404 
 from rest_framework import status
-from .serializers import ChatRequestSerializer, FeedbackClassifySerializer, TopicSerializer
+from .serializers import ChatRequestSerializer, FeedbackClassifySerializer, TopicSerializer, ConversationSerializer
 from typing import Dict, List, Tuple
 import re
 import json
-from .models import FeedbackTag, Feedback, Topic
+from .models import FeedbackTag, Feedback, Topic, Conversation
 from django.db.models import Count, Q
 from rest_framework.permissions import IsAuthenticated
+from stores.models import Store
+from menu.models import Menu
 
 ROLE_GUIDES = {
     "store": """[ROLE=STORE]
@@ -26,18 +29,13 @@ ROLE_GUIDES = {
 - 이번 턴에는 오직 USER 역할만 수행하고, STORE 문장을 출력하지 말 것."""
 }
 
-# FEEDBACK_GUIDE = (
-# "규칙:\n"
-# "{review_top2}, {dietary_top2}, Spicy level-{spicy_top}와 관련된 대화 좀 더 많이 생성할 것"
-# )
-
 # 키가 없으면 명시적 에러
 GEMINI_API_KEY = getattr(settings, "GEMINI_API_KEY", None)
 if not GEMINI_API_KEY:
     raise RuntimeError("GEMINI_API_KEY is not set in settings.")
 
 
-MODEL_NAME = "gemini-2.0-flash"
+MODEL_NAME = "gemini-2.0-flash-lite"
 
 def get_threads(session):
     if "chat_threads" not in session:
@@ -140,6 +138,37 @@ def get_top_feedback_tags(limit: int = 3, user=None, since=None) -> dict:
         "negative": list(neg_top),
     }
 
+# 메뉴 최대 3개 불러옴
+def get_store_menus_or_400(store_id):
+    store = get_object_or_404(Store, pk=store_id)
+    menus = list(
+        Menu.objects.filter(store=store)
+        .values("korean", "english", "price")[:3]
+    )
+
+    def fmt(m):
+        p = m.get("price")
+        return f'{m.get("korean")}' + ", price: " + (f'{p}' if p not in (None, "unknown") else "unknown")
+    menu_texts = [fmt(m) for m in menus]  # 0~3개
+    return store, menu_texts
+
+def build_menu_guide(menu_texts: list[str]) -> str:
+    if not menu_texts:
+        # 메뉴가 아예 없을 때: 메뉴 언급 강제 규칙을 비활성화
+        return (
+            "규칙:\n"
+            "이 매장은 등록된 메뉴가 없으므로 특정 메뉴 관련 대화 생성 절대 금지"
+        )
+    # 1~3개 있는 만큼만 나열
+    bullet_lines = "\n".join(f"-{m}" for m in menu_texts)
+    return (
+        "규칙:\n"
+        "대화 맥락에서 특정 메뉴가 등장해야 하면 무조건 다음 메뉴들 중 하나를 선택해 생성\n"
+        f"{bullet_lines}"
+        "메뉴가 필요 없는 상황에 억지로 넣어서 대화 생성 금지"
+        "허용 목록 외 메뉴명 등장 시 응답 전부 무효이며 즉시 재생성"
+    )
+
 class TopicListView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
@@ -154,12 +183,17 @@ class AiChatView(APIView):
     permission_classes = [IsAuthenticated]
     # 채팅 시작
     def post(self, request):
+        store_id = request.data.get("store_id")
         serializer = ChatRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         raw_user_input = serializer.validated_data["message"].strip()
         category = request.data.get("category")
         topic = request.data.get("topic")
         retry = bool(request.data.get("retry"))
+
+        # 1) store 메뉴 3개 로드
+        store, menu_texts = get_store_menus_or_400(store_id) 
+        filled_menu_guide = build_menu_guide(menu_texts)
 
         # 피드백 태그 중 집계 많은 상위 3개 불러옴
         top_tags = get_top_feedback_tags(limit=3)
@@ -183,10 +217,10 @@ class AiChatView(APIView):
             "english_gloss must be in English (ASCII letters), no Korean. "
             '각 korean은 15자 이내. '
             f'각 대화는 {category}, 특히 {topic}과 매우 강한 연관성 '
-            '플레이스홀더(OO, XX, [ ], ___, ( ), { })가 들어가는 응답 금지 '
-            '가게의 특정 메뉴와 품목과 관련된 질문 금지 '
-            "'fresh'=신선식품 "
+            "'fresh'는 신선식품을 의미 "
             "\n\n"
+            "[Menu Constraint]\n"
+            f"{filled_menu_guide}\n"
             "[Feedback Hints]\n"
             f"{reinforce_line}\n"
             f"{improve_line}\n"
@@ -214,7 +248,8 @@ class AiChatView(APIView):
         # 재지시 문구 추가
         if retry:
             contents.append({"role": "user", "parts": [{"text": f"이전 출력과 다른 새로운 대화 3개를 {role} 입장에서 생성. 표현/내용 중복 금지."}]})
-        contents.append({"role": "user", "parts": [{"text": role_guide}]}) # 가이드 먼저
+        contents.append({"role": "user", "parts": [{"text": role_guide}]}) # 역할 가이드 먼저
+        contents.append({"role": "user", "parts": [{"text": filled_menu_guide}]}) # 메뉴 가이드
         contents.extend([normalize_turn(t) for t in trimmed]) # 과거 히스토리
         contents.append({"role": "user", "parts": [{"text": raw_user_input}]}) # 원문
         contents.append({"role": "user", "parts": [{"text": prompt}]}) # 출력 규칙
@@ -264,7 +299,7 @@ class AiChatView(APIView):
         # 히스토리 업데이트(반드시 role/parts의 원시 형태로 저장)
         history.append({"role": "user", "parts": [{"text": f"[{role.upper()}] {raw_user_input}"}]})
         history.append({"role": "user", "parts": [{"text": role_guide}]}) 
-        # history.append({"role":"user","parts":[{"text": review_guide}]})
+        history.append({"role": "user", "parts": [{"text": filled_menu_guide}]})
         history.append({"role": "user", "parts": [{"text": prompt}]})
         history.append({"role": "model", "parts": [{"text": reply_text}]})
         set_thread(request.session, thread_id, history)
@@ -279,6 +314,8 @@ class AiChatView(APIView):
                 "category": category,
                 "topic": topic,
                 "thread_id": thread_id,
+                "store": {"id": store.store_id, "name": getattr(store, "store_name", None)},
+                "menus": menu_texts,
             },
             status=status.HTTP_200_OK,
         )
@@ -430,4 +467,14 @@ class FeedbackView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
+    
+    
+class ConversationView(APIView):
+    permission_classes = [IsAuthenticated]
 
+    def post(self, request):
+        ser = ConversationSerializer(data=request.data, context={"request": request})
+        ser.is_valid(raise_exception=True)
+        conv = ser.save()  # 내부에서 user=request.user, topics.set 수행
+        out = ConversationSerializer(conv, context={"request": request})
+        return Response(out.data, status=status.HTTP_201_CREATED)
