@@ -19,8 +19,8 @@ class Command(BaseCommand):
             response = requests.get(csv_file_path)
             response.raise_for_status()  # HTTP 오류가 발생하면 예외를 발생시킵니다.
 
-            # 다운로드한 파일의 텍스트 내용을 in-memory 파일처럼 사용합니다.
-            csv_text = io.StringIO(response.text)
+            # 다운로드한 파일의 내용을 UTF-8로 명시적으로 디코딩하여 in-memory 파일처럼 사용합니다.
+            csv_text = io.StringIO(response.content.decode('utf-8'))
 
             # CSV 파일에서 데이터 읽기
             reader = csv.DictReader(csv_text)
