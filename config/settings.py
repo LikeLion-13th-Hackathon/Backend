@@ -56,7 +56,6 @@ DJANGO_APPS = [
 ]
 
 PROJECT_APPS = [
-    'testapi',
     'accounts',
     'receipts',
     'stores',

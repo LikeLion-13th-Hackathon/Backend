@@ -140,10 +140,10 @@ class ReviewView(APIView):
             return Response({"detail": "Review not found"}, status=status.HTTP_404_NOT_FOUND)
         
         if review.user_id != request.user.user_id:
-            return Response({"detail": "권한이 없습니다."}, status=status.HTTP_403_FORBIDDEN)
+            return Response(status=status.HTTP_403_FORBIDDEN)
 
         review.delete()
-        return Response({"detail": "리뷰 삭제 성공"}, status=status.HTTP_204_NO_CONTENT)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class TagListView(APIView):
     permission_classes = [IsAuthenticated]

@@ -160,7 +160,6 @@ class ReceiptView(APIView):
             # store
             store_info = result.get("storeInfo") or {}
             store_name = safe_get(store_info, "name", "formatted", "value") or safe_get(store_info, "name", "text")
-            store_biz_no = safe_get(store_info, "bizNum", "formatted", "value") or safe_get(store_info, "bizNum", "text")
 
             store_address = None
             addrs = store_info.get("addresses") or []
@@ -179,12 +178,6 @@ class ReceiptView(APIView):
                     },
                     status=400,
                 )
-        
-            tel_values = []
-            for t in store_info.get("tel") or []:
-                v = safe_get(t, "formatted", "value") or t.get("text")
-                if v:
-                    tel_values.append(v)
 
             # totals
             total_amount = parse_number(
@@ -198,11 +191,8 @@ class ReceiptView(APIView):
                 payment_date=payment_date,
                 payment_time=payment_time,
                 store_name=store_name,
-                store_biz_no=store_biz_no,
                 store_address=store_address,
-                store_tels=tel_values or None,
                 total_amount=total_amount,
-                currency="KRW",
                 receipt_result_raw=result or None,
             )
 
@@ -230,6 +220,7 @@ class ReceiptView(APIView):
                 logger.warning("Failed to combine payment_datetime: %s", e)
 
         saved.append({
+        "id": row.id,
         "store_name": row.store_name,
         "store_address": row.store_address,
         "payment_datetime": row.payment_datetime,
@@ -270,131 +261,95 @@ def normalize_address(addr: str) -> str:
 
 def score_pair(a: str, b: str) -> dict:
     na, nb = normalize_address(a), normalize_address(b)
-    r = fuzz.ratio(na, nb)
-    p = fuzz.partial_ratio(na, nb)
-    return {"ratio": r, "partial": p}
-
-def pick_better(s1: dict, s2: dict) -> tuple[dict, str]:
-    # ratio 높은 쪽 우선, 동률이면 partial 높은 쪽
-    if s1["ratio"] > s2["ratio"]:
-        return s1, "roadname"
-    if s2["ratio"] > s1["ratio"]:
-        return s2, "number"
-    if s1["partial"] >= s2["partial"]:
-        return s1, "roadname"
-    else:
-        return s2, "number"
-
-def compare_address(ocr_addr: str, roadname_addr: str | None, number_addr: str | None) -> dict:
-    # 점수 계산
-    road_scores = score_pair(ocr_addr, roadname_addr or "")
-    num_scores  = score_pair(ocr_addr, number_addr or "")
-
-    # 더 높은 점수로 선택
-    best_scores, best_type = pick_better(road_scores, num_scores)
-
-    # - 엄격: ratio >= 93
-    # - 관대: partial >= 97 and ratio >= 85
-    strict_ok = best_scores["ratio"] >= 93
-    lenient_ok = (best_scores["partial"] >= 97 and best_scores["ratio"] >= 85)
-
-    match = bool(strict_ok or lenient_ok)
-
     return {
-        "match": match,
-        "best_type": best_type, # 'roadname' or 'number'
-        "best_scores": best_scores,
-        "road_scores": road_scores,
-        "number_scores": num_scores,
+        "ratio": fuzz.ratio(na, nb),
+        "partial": fuzz.partial_ratio(na, nb),
+        "a": na,  # 디버깅용
+        "b": nb,  # 디버깅용
     }
 
+def best_of_store(ocr_addr: str, store) -> dict:
+    # 도로명/지번 각각 채점 후 더 좋은 쪽을 점포의 대표 점수로 채택
+    road = getattr(store, "road_address", "") or ""
+    street = getattr(store, "street_address", "") or ""
+
+    road_s = score_pair(ocr_addr, road)
+    num_s  = score_pair(ocr_addr, street)
+
+    road_score = max(road_s["ratio"], road_s["partial"])
+    num_score = max(num_s["ratio"], num_s["partial"])
+
+    if (road_score > num_score) or (road_score == num_score and road_s["partial"] >= num_s["partial"]):
+
+        chosen_type = "roadname"
+        chosen_score = road_score
+    else:
+        chosen_type = "number"
+        chosen_score = num_score
+
+    return {
+        "store_id": getattr(store, "store_id", getattr(store, "id", None)),
+        "store_name": getattr(store, "store_name", None),
+        "select_type": chosen_type,           # 'roadname' | 'number'
+        "score": chosen_score,
+        # "road_scores": road_s,
+        # "number_scores": num_s,
+        "road_address": getattr(store, "road_address", None),
+        "street_address": getattr(store, "street_address", None),
+        # "normalized": {
+        #     "road": normalize_address(getattr(store, "road_address", "") or ""),
+        #     "street": normalize_address(getattr(store, "street_address", "") or ""),
+        # },
+        "id": getattr(store, "id", getattr(store, "store_id", 0)), # 보조 정렬용
+    }
 
 class ReceiptAddressCompareView(APIView):
     permission_classes = [IsAuthenticated]
-    def post(self, request):
-
-        image_uid = request.data.get("image_uid")
-        receipt_id = request.data.get("receipt_id")
-        store_id = request.data.get("store_id")
-
-        if not (image_uid or receipt_id):
-            return Response({"detail": "image_uid 또는 receipt_id 중 하나는 필수입니다."}, status=400)
+    def get(self, request):
+        receipt_id = self.request.query_params.get('receipt_id')
+        if not receipt_id:
+            return Response({"detail": "receipt_id는 필수입니다."}, status=400)
        
-        # 1) 영수증 조회 (image_uid가 있으면 최신 1건, 없으면 receipt_id로 단건)
+        # 영수증 조회 
         try:
-            if receipt_id:
-                receipt = Receipt.objects.get(id=receipt_id)
-            else:
-                receipt = Receipt.objects.filter(image_uid=image_uid).order_by("-id").first()
-                if not receipt:
-                    return Response({"detail": f"image_uid={image_uid} 에 해당하는 영수증이 없습니다."}, status=404)
+            receipt = Receipt.objects.get(id=receipt_id)
         except Receipt.DoesNotExist:
             return Response({"detail": f"receipt_id={receipt_id} 에 해당하는 영수증이 없습니다."}, status=404)
 
-        # 2) 영수증 측 주소 추출
-        # 저장 시 store_address를 이미 넣었다면 그대로 사용
+        # 영수증의 주소 추출
         receipt_store_address = getattr(receipt, "store_address", None)
-        if not receipt_store_address:
-            # 저장된 원본에서 꺼낼 수도 있음(필요 시)
-            raw = getattr(receipt, "receipt_result_raw", {}) or {}
-            store_info = (raw.get("storeInfo") or {})
-            # formatted 우선, 없으면 text
-            receipt_store_address = None
-            addrs = store_info.get("addresses") or []
-            if addrs:
-                first = addrs[0] or {}
-                receipt_store_address = (first.get("formatted") or {}).get("value") or first.get("text") or ""
-        receipt_store_address = receipt_store_address or ""
 
-        # 3) 현재 상점 주소 조회(도로명/지번)
-        try:
-            current_store = Store.objects.get(pk=store_id)
-            roadname_addr = current_store.road_address or ""
-            number_addr   = current_store.street_address or ""
-        except Store.DoesNotExist:
-            # DB에 없으면 빈값 비교로 처리
-            roadname_addr = ""
-            number_addr   = ""
+        # 정규화
+        norm_receipt_addr = normalize_address(receipt_store_address)
+        if not norm_receipt_addr:
+            return Response(
+                {
+                    "detail": "영수증에서 주소를 추출/정규화하지 못했습니다.",
+                    "receipt_address": receipt_store_address,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        # 4) 비교
-        cmp = compare_address(
-            ocr_addr=receipt_store_address,
-            roadname_addr=roadname_addr,
-            number_addr=number_addr,
-        )
+        scored = []
+        for s in Store.objects.all():
+            scored.append(best_of_store(norm_receipt_addr, s))
 
-        # best_type 기준으로 응답용 주소 선택
-        chosen_store_addr = roadname_addr if cmp["best_type"] == "roadname" else number_addr
+        scored.sort(key=lambda x: (-x["score"], x["id"]))
+        top5 = scored[:5]
 
-        # 5) 영수증 메타(상호/날짜/총액)도 같이 반환하면 프론트가 표시하기 좋음
-        receipt_store_name = getattr(receipt, "store_name", None)
-        receipt_date = getattr(receipt, "payment_date", None)
-        receipt_total_price = getattr(receipt, "total_amount", None)
-
-        payload = {
-            "receipt": {
-                "id": receipt.id,
-                "image_uid": getattr(receipt, "image_uid", None),
-                "store_name": receipt_store_name,
-                "store_address": receipt_store_address,
-                "payment_date": receipt_date,
-                "total_amount": receipt_total_price,
-            },
-            "current_store_address": chosen_store_addr,
-            "address_match": cmp["match"],
-            "best_type": cmp["best_type"],
-            "best_scores": cmp["best_scores"],
-            "road_scores": cmp["road_scores"],
-            "number_scores": cmp["number_scores"],
-            "normalized": {
-                "receipt": normalize_address(receipt_store_address),
-                "roadname": normalize_address(roadname_addr),
-                "number": normalize_address(number_addr),
-            }
-        }
-        if cmp["match"]:
-            payload["message"] = "주소가 일치하거나 허용 범위 내에서 일치합니다."
-            return Response(payload, status=200)
-        else:
-            payload["message"] = "영수증 주소와 가게 주소가 일치하지 않습니다."
-            return Response(payload, status=400)
+        return Response(
+                {
+                    "receipt": {
+                        "id": receipt.id,
+                        "store_name": getattr(receipt, "store_name", None),
+                        "store_address": receipt_store_address,
+                        "payment_date": getattr(receipt, "payment_date", None),
+                    },
+                    "normalized": {
+                        "receipt": norm_receipt_addr,
+                    },
+                    "candidates": scored[:5],  # 점수 높은 순 전체
+                    "message": "점수 높은 순 5개",
+                },
+                status=status.HTTP_200_OK
+            )
