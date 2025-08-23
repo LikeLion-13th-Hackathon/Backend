@@ -45,7 +45,7 @@ class TopicSerializer(serializers.ModelSerializer):
 class TopicMiniSerializer(serializers.ModelSerializer):
     class Meta:
         model = Topic
-        fields = ["id", "topic"]  # Topic에 name 필드가 있다고 가정
+        fields = ["id", "topic", "category"] 
 
 class ConversationSerializer(serializers.ModelSerializer):
     # 토픽 id 리스트로 입출력
@@ -64,6 +64,21 @@ class ConversationSerializer(serializers.ModelSerializer):
         if not value:
             raise serializers.ValidationError("topics는 최소 1개 이상이어야 합니다.")
         return value
+    
+    def validate(self, attrs):
+        topics = attrs.get("topics", [])
+        if topics:
+            # category가 FK라고 가정: Topic 모델에 category 필드가 존재
+            categories = {t.category_id if hasattr(t, "category_id") else t.category for t in topics}
+            if len(categories) > 1:
+                try:
+                    cat_labels = sorted({getattr(t.category, "name", str(t.category)) for t in topics})
+                except Exception:
+                    cat_labels = sorted(map(str, categories))
+                raise serializers.ValidationError({
+                    "topics": f"선택한 topics의 카테고리가 서로 다릅니다. 카테고리: {', '.join(cat_labels)}"
+                })
+        return attrs
 
     def create(self, validated_data):
         topics = validated_data.pop("topics", [])
