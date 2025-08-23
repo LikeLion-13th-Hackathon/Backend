@@ -35,7 +35,7 @@ if not GEMINI_API_KEY:
     raise RuntimeError("GEMINI_API_KEY is not set in settings.")
 
 
-MODEL_NAME = "gemini-2.0-flash-lite"
+MODEL_NAME = "gemini-2.0-flash"
 
 def get_threads(session):
     if "chat_threads" not in session:
@@ -236,7 +236,7 @@ class AiChatView(APIView):
             "english_gloss must be in English (ASCII letters), no Korean. "
             '각 korean은 15자 이내. '
             f'각 대화는 {category}, 특히 {topic}과 매우 강한 연관성 '
-            "'fresh'는 신선식품을 의미 "
+            "category가 fresh면 신선식품을 의미"
             "\n\n"
             "[Menu Constraint]\n"
             f"{filled_menu_guide}\n"
