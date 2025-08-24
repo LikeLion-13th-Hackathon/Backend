@@ -19,6 +19,137 @@ import requests
 import logging
 import re
 from rest_framework.permissions import IsAuthenticated
+from io import BytesIO
+from PIL import Image, ImageOps
+import imghdr
+
+MAX_OCR_BYTES = 1_000_000  # 1MB
+
+class GetReceiptPresignedUrlView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        original_filename = request.data.get("filename")
+        prefix = "receipt/"
+
+        if not original_filename:
+            return Response({"error": "filename is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # jpg로 강제
+        unique_filename = f"{uuid.uuid4()}.jpg"
+        key = f"{prefix}{unique_filename}"
+
+        s3_client = boto3.client(
+            "s3",
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            region_name=settings.AWS_REGION,
+        )
+
+        content_type = "image/jpeg"
+
+        try:
+            presigned_url = s3_client.generate_presigned_url(
+                ClientMethod="put_object",
+                Params={
+                    "Bucket": settings.AWS_STORAGE_BUCKET_NAME,
+                    "Key": key,
+                    "ContentType": content_type,
+                },
+                ExpiresIn=3600,
+            )
+
+            s3_url = f"https://{settings.AWS_STORAGE_BUCKET_NAME}.s3.{settings.AWS_REGION}.amazonaws.com/{key}"
+
+            return Response({
+                "presigned_url": presigned_url,
+                "s3_url": s3_url,
+                "key": key,
+                "content_type": content_type,
+                "expires_in": 3600,
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def upload_receipt_to_s3(data: bytes, filename: str | None = None) -> str:
+    s3_client = boto3.client(
+        "s3",
+        aws_access_key_id=getattr(settings, "AWS_ACCESS_KEY_ID", None),
+        aws_secret_access_key=getattr(settings, "AWS_SECRET_ACCESS_KEY", None),
+        region_name=getattr(settings, "AWS_REGION", None),
+    )
+    bucket = settings.AWS_STORAGE_BUCKET_NAME
+    region = settings.AWS_REGION
+
+    if not filename:
+        filename = f"{uuid.uuid4()}.jpg"
+    key = f"receipt/{filename}"
+
+    s3_client.put_object(
+        Bucket=bucket,
+        Key=key,
+        Body=data,
+        ContentType="image/jpeg",
+    )
+
+    return f"https://{bucket}.s3.{region}.amazonaws.com/{key}"
+
+def to_jpeg_under_1mb(django_file) -> tuple[bytes, str]:
+    # 1MB 넘는 파일 다운그레이드, jpeg 변환
+    raw = django_file.read()
+    django_file.seek(0)
+
+    try:
+        with Image.open(BytesIO(raw)) as im:
+            im = ImageOps.exif_transpose(im)
+            if im.mode in ("RGBA", "LA", "P"):
+                im = im.convert("RGB")
+            elif im.mode != "RGB":
+                im = im.convert("RGB")
+
+            # 원본 해상도에서 품질 조정
+            jpeg_bytes = _encode_jpeg_under_limit(im, target_bytes=MAX_OCR_BYTES)
+            if jpeg_bytes is not None:
+                # 파일명 교체
+                base_name = getattr(django_file, "name", "upload")
+                if "." in base_name:
+                    base_name = base_name.rsplit(".", 1)[0]
+                return jpeg_bytes, f"{base_name}.jpg"
+
+            # 줄어들 때까지 다운그레이드
+            w, h = im.size
+            for scale in (0.9, 0.8, 0.7, 0.6, 0.5):
+                nw, nh = int(w * scale), int(h * scale)
+                if nw < 64 or nh < 64:
+                    break
+                im_resized = im.resize((nw, nh), Image.LANCZOS)
+                jpeg_bytes = _encode_jpeg_under_limit(im_resized, target_bytes=MAX_OCR_BYTES)
+                if jpeg_bytes is not None:
+                    base_name = getattr(django_file, "name", "upload")
+                    if "." in base_name:
+                        base_name = base_name.rsplit(".", 1)[0]
+                    return jpeg_bytes, f"{base_name}.jpg"
+
+    except Exception as e:
+        raise ValueError(f"이미지 변환 실패: {e}")
+
+    raise ValueError("1MB 이하 JPEG로 변환 실패")
+
+def _encode_jpeg_under_limit(im: Image.Image, target_bytes=MAX_OCR_BYTES):
+    
+    # JPEG 인코딩
+    for q in (85, 80, 75, 70, 60, 50):
+        buf = BytesIO()
+        try:
+            im.save(buf, format="JPEG", quality=q, optimize=True, progressive=True)
+        except OSError:
+            # optimize 실패 시 재시도
+            buf = BytesIO()
+            im.save(buf, format="JPEG", quality=q)
+        data = buf.getvalue()
+        if len(data) <= target_bytes:
+            return data
+    return None
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +164,6 @@ def safe_get(d, *path, default=None):
     return cur
 
 def parse_date(date_obj):
-    """
-    입력: OCR의 paymentInfo.date 오브젝트(dict)
-    출력: datetime.date 또는 None
-    """
     fmt = (date_obj or {}).get("formatted") or {}
     y, m, d = fmt.get("year"), fmt.get("month"), fmt.get("day")
     if y and m and d:
@@ -59,10 +186,6 @@ def parse_date(date_obj):
 
 
 def parse_time(time_obj):
-    """
-    입력: OCR의 paymentInfo.time 오브젝트(dict)
-    출력: datetime.time 또는 None
-    """
     fmt = (time_obj or {}).get("formatted") or {}
     hh, mm, ss = fmt.get("hour"), fmt.get("minute"), fmt.get("second")
     if hh and mm and ss:
@@ -107,12 +230,18 @@ def parse_number(value):
 class ReceiptView(APIView):
     permission_classes = [IsAuthenticated]
     def post(self, request):
-        # 1) 이미지 파일 받기
+        # 이미지 파일 받기
         image_file = request.FILES.get("file")
         if not image_file:
             return Response({"detail": "file 필드로 이미지를 업로드하세요."}, status=400)
 
-        # 2) 네이버 OCR 호출
+        # 파일 JPEG <= 1MB로 강제 변환
+        try:
+            jpeg_bytes, new_name = to_jpeg_under_1mb(image_file)
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=400)
+        
+        # 네이버 OCR 호출
 
         OCR_URL = "https://e140deli82.apigw.ntruss.com/custom/v1/45208/063b748a49735894d8ed5ccb7d319025d142b0ce3854fafec62ee3053ba2da0d/document/receipt"
 
@@ -120,10 +249,10 @@ class ReceiptView(APIView):
             "version": "V2",
             "requestId": str(uuid.uuid4()),
             "timestamp": int(timezone.now().timestamp() * 1000),
-            "images": [{"format": "jpg", "name": image_file.name}],
+            "images": [{"format": "jpg", "name": new_name}],
         }
         files = {
-            "file": (image_file.name, image_file, getattr(image_file, "content_type", "image/jpeg")),
+            "file": (new_name, BytesIO(jpeg_bytes), "image/jpeg"),
             "message": (None, json.dumps(message), "application/json"),
         }
         headers = {"X-OCR-SECRET": settings.X_OCR_SECRET}
@@ -135,7 +264,7 @@ class ReceiptView(APIView):
         except Exception as e:
             return Response({"detail": f"OCR 호출 실패: {e}"}, status=502)
 
-        # 3) OCR 응답에서 images[].receipt만 저장
+        # OCR 응답에서 images[].receipt만 저장
         images = ocr.get("images") or []
         if not images:
             return Response({"detail": "OCR 응답에 images가 없습니다.", "ocr": ocr}, status=200)
@@ -218,6 +347,12 @@ class ReceiptView(APIView):
                 row.save(update_fields=["payment_datetime"])
             except Exception as e:
                 logger.warning("Failed to combine payment_datetime: %s", e)
+
+        try:
+            s3_url = upload_receipt_to_s3(jpeg_bytes, filename=new_name)  # receipt/{new_name}
+        except Exception as e:
+            # S3 업로드 실패를 치명적으로 볼지 선택. 일반적으로 여기서 502를 반환.
+            return Response({"detail": f"S3 업로드 실패: {e}"}, status=502)
 
         saved.append({
         "id": row.id,
