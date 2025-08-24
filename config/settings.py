@@ -88,7 +88,8 @@ MIDDLEWARE = [
 
 CSRF_TRUSTED_ORIGINS = [
     'https://oyes-hackathon.o-r.kr',
-    'https://www.oyes-hackathon.o-r.k'
+    'https://www.oyes-hackathon.o-r.kr',
+    'https://develop--oyes-hackaton.netlify.app',
 ]
 
 
@@ -186,6 +187,10 @@ CORS_ALLOWED_ORIGINS = [    # 프론트 배포 후 프론트 도메인으로 변
     "https://oyes-hackathon.o-r.kr",
     "https://oyes-hackaton.netlify.app",
     "https://develop--oyes-hackaton.netlify.app"
+]
+
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://deploy-preview-\d+--oyes-hackaton\.netlify\.app$"
 ]
 
 ### LOGIN ###
