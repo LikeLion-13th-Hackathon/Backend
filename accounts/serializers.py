@@ -3,6 +3,20 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import User, RewardHistory
 from reviews.models import Review
 
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+# 이메일 중복/형식만 검사하는 전용 시리얼라이저
+class EmailCheckSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("이미 사용 중인 이메일입니다.")
+        return value
+
+
 # 회원가입용 시리얼라이저
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
@@ -31,11 +45,6 @@ class RegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Email already exists.")
         
         return value
-    
-# 로그인용 시리얼라이저
-from django.contrib.auth import get_user_model
-
-User = get_user_model()
 
 class AuthSerializer(serializers.Serializer):
     email = serializers.EmailField()
