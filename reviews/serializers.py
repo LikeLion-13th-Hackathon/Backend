@@ -146,6 +146,7 @@ class ReviewUpdateSerializer(serializers.ModelSerializer, TagValidationMixin):
         
 # 리뷰 읽기용
 class ReviewSerializer(serializers.ModelSerializer):
+    store_image = serializers.CharField(source="store.store_image", read_only=True)
     tags = ReviewTagSerializer(many=True, read_only=True)
     liked = serializers.SerializerMethodField()
     author = serializers.SerializerMethodField()
@@ -153,7 +154,7 @@ class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
         fields = [
-            "id", "store", "user", "comment",
+            "id", "store", "store_image", "user", "comment",
             "likes_count", "tags", "liked",
             "created", "updated",
             "author"
