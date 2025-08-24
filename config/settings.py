@@ -201,7 +201,7 @@ REST_FRAMEWORK = {
 REST_USE_JWT = True
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=20),    # 유효기간 3시간 (개발 기간동안 프론트 접근 가능하도록 임의로 20일)
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=3),    # 유효기간 3시간 (개발 기간동안 프론트 접근 가능하도록 임의로 20일)
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),    # 유효기간 7일
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': False,
