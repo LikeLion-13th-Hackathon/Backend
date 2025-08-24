@@ -9,7 +9,7 @@ class Command(BaseCommand):
             {
                 "name": "흑석시장",
                 "english": "Heukseok Market",
-                "image": "https://oyes-hackathon.s3.ap-northeast-2.amazonaws.com/uploads/markets/heukseok.jpg",
+                "image": "https://oyes-hackathon.s3.ap-northeast-2.amazonaws.com/uploads/markets/heukseok.png",
                 "image2": "https://oyes-hackathon.s3.ap-northeast-2.amazonaws.com/uploads/markets/HeukseokMarket2.png",
                 "image3": "https://oyes-hackathon.s3.ap-northeast-2.amazonaws.com/uploads/markets/HeukseokMarket3.png",
                 
@@ -17,7 +17,7 @@ class Command(BaseCommand):
             {
                 "name": "상도전통시장",
                 "english": "Sangdo Traditional Market",
-                "image": "https://oyes-hackathon.s3.ap-northeast-2.amazonaws.com/uploads/markets/sangdo.jpg",
+                "image": "https://oyes-hackathon.s3.ap-northeast-2.amazonaws.com/uploads/markets/sangdo.png",
                 "image2": "https://oyes-hackathon.s3.ap-northeast-2.amazonaws.com/uploads/markets/SangdoTraditionalMarket2.png",
                 "image3": "https://oyes-hackathon.s3.ap-northeast-2.amazonaws.com/uploads/markets/SangdoTraditionalMarket3.png",
 
@@ -25,7 +25,7 @@ class Command(BaseCommand):
             {
                 "name": "노량진수산시장",
                 "english": "Noryangjin Fish Market",
-                "image": "https://oyes-hackathon.s3.ap-northeast-2.amazonaws.com/uploads/markets/noryangjin.jpg",
+                "image": "https://oyes-hackathon.s3.ap-northeast-2.amazonaws.com/uploads/markets/noryangjin.png",
                 "image2": "https://oyes-hackathon.s3.ap-northeast-2.amazonaws.com/uploads/markets/Norangjin+Fish+Market+2.png",
                 "image3": "https://oyes-hackathon.s3.ap-northeast-2.amazonaws.com/uploads/markets/Norangjin+Fish+Market+3.png",
 
