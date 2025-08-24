@@ -48,7 +48,6 @@ class GetPresignedUrlView(APIView):
         
 
 class SaveProfileImageView(APIView):
-    permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         s3_url = request.data.get('s3_url')
