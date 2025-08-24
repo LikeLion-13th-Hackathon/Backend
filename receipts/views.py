@@ -290,6 +290,7 @@ def best_of_store(ocr_addr: str, store) -> dict:
     return {
         "store_id": getattr(store, "store_id", getattr(store, "id", None)),
         "store_name": getattr(store, "store_name", None),
+        "store_image": getattr(store, "store_image", None),
         "select_type": chosen_type,           # 'roadname' | 'number'
         "score": chosen_score,
         # "road_scores": road_s,
@@ -335,7 +336,6 @@ class ReceiptAddressCompareView(APIView):
             scored.append(best_of_store(norm_receipt_addr, s))
 
         scored.sort(key=lambda x: (-x["score"], x["id"]))
-        top5 = scored[:5]
 
         return Response(
                 {
