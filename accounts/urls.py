@@ -13,4 +13,5 @@ urlpatterns = [
     path("mypage/", UserInfoView.as_view()),
     path('reward/', RewardView.as_view()),
     path("<int:user_id>/", PublicUserDetailView.as_view()), 
+    path("check/", EmailCheckView.as_view(), name="check-email"),
 ]

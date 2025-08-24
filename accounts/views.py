@@ -16,6 +16,30 @@ from json import JSONDecodeError
 from django.http import JsonResponse
 import requests 
 
+class EmailCheckView(APIView):
+    def post(self, request):
+        serializer = EmailCheckSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response({"message": "사용 가능한 이메일입니다."}, status=status.HTTP_200_OK)
+
+
+class RegisterView(APIView):
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        # 토큰 발급
+        token = RefreshToken.for_user(user)
+        return Response({
+            "user": RegisterSerializer(user).data,
+            "token": {
+                "access_token": str(token.access_token),
+                "refresh_token": str(token),
+            }
+        }, status=status.HTTP_201_CREATED)
+
+'''
 class RegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -43,6 +67,7 @@ class RegisterView(APIView):
                 status=status.HTTP_201_CREATED,
             )
             return res
+'''
 
 class AuthView(APIView):
     def post(self, request):
