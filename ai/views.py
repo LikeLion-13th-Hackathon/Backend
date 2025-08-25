@@ -34,7 +34,7 @@ GEMINI_API_KEY = getattr(settings, "GEMINI_API_KEY", None)
 if not GEMINI_API_KEY:
     raise RuntimeError("GEMINI_API_KEY is not set in settings.")
 
-CHAT_MODEL_NAME = "gemini-2.0-flash"
+CHAT_MODEL_NAME = "gemini-2.0-flash-lite"
 FEEDBACK_MODEL_NAME = "gemini-2.0-flash-lite"
 
 def get_threads(session):
