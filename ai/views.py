@@ -236,8 +236,8 @@ class AiChatView(APIView):
             "romanization must use Latin letters only (ASCII A-Z/a-z), spaces, and basic punctuation. Do not include any Korean characters or digits. "
             "english_gloss must be in English (ASCII letters), no Korean. "
             "If the romanization field & english field contains any Korean characters, the entire response is invalid and must be regenerated immediately.\n"
-            "category와 topic에서 벗어난 대화 생성 금지. "
             '각 korean은 15자 이내. '
+            "category와 topic에서 벗어나지 않는 선에서 자연스러운 대화 생성. "
             '요청된 message에 대한 role의 답변을 생성. '
             f'각 대화는 {category}, 특히 {topic}과 매우 강한 연관성. '
             f'(topic에 대한 예시: {caption}) 그대로 생성하지 말고 참고만 할 것. '
