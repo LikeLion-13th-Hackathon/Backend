@@ -34,8 +34,8 @@ GEMINI_API_KEY = getattr(settings, "GEMINI_API_KEY", None)
 if not GEMINI_API_KEY:
     raise RuntimeError("GEMINI_API_KEY is not set in settings.")
 
-
-MODEL_NAME = "gemini-2.0-flash-lite"
+CHAT_MODEL_NAME = "gemini-2.0-flash-lite"
+FEEDBACK_MODEL_NAME = "gemini-2.0-flash-lite"
 
 def get_threads(session):
     if "chat_threads" not in session:
@@ -164,9 +164,9 @@ def build_menu_guide(menu_texts: list[str]) -> str:
     return (
         "규칙:\n"
         "대화 맥락에서 특정 메뉴가 등장해야 하면 무조건 다음 메뉴들 중 하나를 선택해 생성\n"
-        f"{bullet_lines}"
-        "메뉴가 필요 없는 상황에 억지로 넣어서 대화 생성 금지"
-        "허용 목록 외 메뉴명 등장 시 응답 전부 무효이며 즉시 재생성"
+        f"{bullet_lines}\n"
+        "메뉴가 필요 없는 상황에 억지로 넣어서 대화 생성 금지\n"
+        "허용 목록 외 메뉴명 등장 시 응답 전부 무효이며 즉시 재생성\n"
     )
 
 class TopicListView(APIView):
@@ -234,7 +234,9 @@ class AiChatView(APIView):
             "romanization 필드는 라틴 알파벳(ASCII A-Z/a-z), 공백과 기본 구두점만 허용. 한글/숫자/기타 기호가 하나라도 포함되면 응답은 무효이며 즉시 재생성. "
             "romanization must use Latin letters only (ASCII A-Z/a-z), spaces, and basic punctuation. Do not include any Korean characters or digits. "
             "english_gloss must be in English (ASCII letters), no Korean. "
+            "If the romanization field & english field contains any Korean characters, the entire response is invalid and must be regenerated immediately. "
             '각 korean은 15자 이내. '
+            '요청된 message에 대한 role의 답변을 생성'
             f'각 대화는 {category}, 특히 {topic}과 매우 강한 연관성 '
             "category가 fresh면 신선식품을 의미"
             "\n\n"
@@ -288,7 +290,7 @@ class AiChatView(APIView):
         
         # 모델 호출
         resp = client.models.generate_content(
-            model=MODEL_NAME,
+            model=CHAT_MODEL_NAME,
             contents=contents,
             config={
                 "response_mime_type": "application/json",
@@ -316,11 +318,8 @@ class AiChatView(APIView):
             })
 
         # 히스토리 업데이트(반드시 role/parts의 원시 형태로 저장)
-        history.append({"role": "user", "parts": [{"text": f"[{role.upper()}] {raw_user_input}"}]})
-        history.append({"role": "user", "parts": [{"text": role_guide}]}) 
-        history.append({"role": "user", "parts": [{"text": filled_menu_guide}]})
-        history.append({"role": "user", "parts": [{"text": prompt}]})
-        history.append({"role": "model", "parts": [{"text": reply_text}]})
+        history.append({"role": "user", "parts": [{"text": f"[To {role.upper()}] {raw_user_input}"}]})
+        # history.append({"role": "model", "parts": [{"text": reply_text}]})
         set_thread(request.session, thread_id, history)
 
         return Response(
@@ -420,7 +419,7 @@ class FeedbackView(APIView):
 
         # 3) 모델 호출
         resp = client.models.generate_content(
-            model=MODEL_NAME,
+            model=FEEDBACK_MODEL_NAME,
             contents=[{"role": "user", "parts": [{"text": prompt}]}],
             config={
                 "response_mime_type": "application/json",
