@@ -185,8 +185,7 @@ class RewardView(APIView):
             result = add_reward(
                 user_id=user_id,
                 delta=data['delta'],
-                caption=data['caption'],
-                store_english=data['store_english']
+                caption=data['caption']
             )
             return Response(
                 {
@@ -194,8 +193,7 @@ class RewardView(APIView):
                     "caption": data['caption'],
                     "balance": result["balance"],
                     "changed": result["changed"],
-                    "history_id": result["history_id"],
-                    "store_english" : result["store_english"],
+                    "history_id": result["history_id"]
                 },
                 status=status.HTTP_200_OK,
             )
