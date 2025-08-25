@@ -235,10 +235,11 @@ class AiChatView(APIView):
             "romanization must use Latin letters only (ASCII A-Z/a-z), spaces, and basic punctuation. Do not include any Korean characters or digits. "
             "english_gloss must be in English (ASCII letters), no Korean. "
             "If the romanization field & english field contains any Korean characters, the entire response is invalid and must be regenerated immediately. "
+            "category와 topic에서 벗어난 대화 생성 금지"
             '각 korean은 15자 이내. '
             '요청된 message에 대한 role의 답변을 생성'
             f'각 대화는 {category}, 특히 {topic}과 매우 강한 연관성 '
-            "category가 fresh면 신선식품을 의미"
+            'category가 fresh면 신선식품을 의미'
             "\n\n"
             "[Menu Constraint]\n"
             f"{filled_menu_guide}\n"
@@ -318,7 +319,7 @@ class AiChatView(APIView):
             })
 
         # 히스토리 업데이트(반드시 role/parts의 원시 형태로 저장)
-        history.append({"role": "user", "parts": [{"text": f"[To {role.upper()}] {raw_user_input}"}]})
+        history.append({"role": "user", "parts": [{"text": f"[TO {role.upper()}] {raw_user_input}"}]})
         # history.append({"role": "model", "parts": [{"text": reply_text}]})
         set_thread(request.session, thread_id, history)
 
