@@ -169,6 +169,7 @@ class RewardView(APIView):
         return Response(
             {
                 "results": serializer.data
+
                 },
             status=status.HTTP_200_OK,
         )
@@ -184,7 +185,8 @@ class RewardView(APIView):
             result = add_reward(
                 user_id=user_id,
                 delta=data['delta'],
-                caption=data['caption']
+                caption=data['caption'],
+                store_english=data['store_english']
             )
             return Response(
                 {
@@ -193,6 +195,7 @@ class RewardView(APIView):
                     "balance": result["balance"],
                     "changed": result["changed"],
                     "history_id": result["history_id"],
+                    "store_english" : result["store_english"],
                 },
                 status=status.HTTP_200_OK,
             )
