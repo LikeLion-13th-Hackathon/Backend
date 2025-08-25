@@ -34,7 +34,7 @@ GEMINI_API_KEY = getattr(settings, "GEMINI_API_KEY", None)
 if not GEMINI_API_KEY:
     raise RuntimeError("GEMINI_API_KEY is not set in settings.")
 
-CHAT_MODEL_NAME = "gemini-2.0-flash-lite"
+CHAT_MODEL_NAME = "gemini-2.0-flash"
 FEEDBACK_MODEL_NAME = "gemini-2.0-flash-lite"
 
 def get_threads(session):
@@ -238,7 +238,7 @@ class AiChatView(APIView):
             "If the romanization field & english field contains any Korean characters, the entire response is invalid and must be regenerated immediately.\n"
             '각 korean은 15자 이내. '
             "category와 topic에서 벗어나지 않는 선에서 자연스러운 대화 생성. "
-            '요청된 message에 대한 role의 답변을 생성. '
+            '요청된 message에 대한 현재 role의 답변을 생성. '
             f'각 대화는 {category}, 특히 {topic}과 매우 강한 연관성. '
             f'(topic에 대한 예시: {caption}) 그대로 생성하지 말고 참고만 할 것. '
             'category가 fresh면 신선식품을 의미. '
