@@ -157,16 +157,16 @@ def build_menu_guide(menu_texts: list[str]) -> str:
         # 메뉴가 아예 없을 때: 메뉴 언급 강제 규칙을 비활성화
         return (
             "규칙:\n"
-            "이 매장은 등록된 메뉴가 없으므로 특정 메뉴 관련 대화 생성 절대 금지"
+            "이 매장은 등록된 메뉴가 없으므로 특정 메뉴 관련 대화 생성 절대 금지. "
         )
     # 1~3개 있는 만큼만 나열
     bullet_lines = "\n".join(f"-{m}" for m in menu_texts)
     return (
         "규칙:\n"
-        "대화 맥락에서 특정 메뉴가 등장해야 하면 무조건 다음 메뉴들 중 하나를 선택해 생성\n"
+        "대화 맥락에서 특정 메뉴가 등장해야 하면 무조건 다음 메뉴들 중 하나를 선택해 생성.\n"
         f"{bullet_lines}\n"
-        "메뉴가 필요 없는 상황에 억지로 넣어서 대화 생성 금지\n"
-        "허용 목록 외 메뉴명 등장 시 응답 전부 무효이며 즉시 재생성\n"
+        "메뉴가 필요 없는 상황에 억지로 넣어서 대화 생성 금지.\n"
+        "허용 목록 외 메뉴명 등장 시 응답 전부 무효이며 즉시 재생성.\n"
     )
 
 class TopicListView(APIView):
@@ -208,6 +208,7 @@ class AiChatView(APIView):
         raw_user_input = serializer.validated_data["message"].strip()
         category = request.data.get("category")
         topic = request.data.get("topic")
+        caption = get_object_or_404(Topic, category=category, topic=topic).caption
         retry = bool(request.data.get("retry"))
 
         # 1) store 메뉴 3개 로드
@@ -230,16 +231,17 @@ class AiChatView(APIView):
 
         # 첫 요청: "category에 속하는 'topic'과 매우 연관된, store 입장에서 고객에게 말을 거는 3가지 한국어 대화 생성해."
         prompt = (
-            '각 항목은 {korean, romanization, english_gloss} 필드를 포함해. '
+            '각 항목은 {korean, romanization, english_gloss} 필드를 포함. '
             "romanization 필드는 라틴 알파벳(ASCII A-Z/a-z), 공백과 기본 구두점만 허용. 한글/숫자/기타 기호가 하나라도 포함되면 응답은 무효이며 즉시 재생성. "
             "romanization must use Latin letters only (ASCII A-Z/a-z), spaces, and basic punctuation. Do not include any Korean characters or digits. "
             "english_gloss must be in English (ASCII letters), no Korean. "
-            "If the romanization field & english field contains any Korean characters, the entire response is invalid and must be regenerated immediately. "
-            "category와 topic에서 벗어난 대화 생성 금지"
+            "If the romanization field & english field contains any Korean characters, the entire response is invalid and must be regenerated immediately.\n"
+            "category와 topic에서 벗어난 대화 생성 금지. "
             '각 korean은 15자 이내. '
-            '요청된 message에 대한 role의 답변을 생성'
-            f'각 대화는 {category}, 특히 {topic}과 매우 강한 연관성 '
-            'category가 fresh면 신선식품을 의미'
+            '요청된 message에 대한 role의 답변을 생성. '
+            f'각 대화는 {category}, 특히 {topic}과 매우 강한 연관성. '
+            f'(topic에 대한 예시: {caption}) 그대로 생성하지 말고 참고만 할 것. '
+            'category가 fresh면 신선식품을 의미. '
             "\n\n"
             "[Menu Constraint]\n"
             f"{filled_menu_guide}\n"
